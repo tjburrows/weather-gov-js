@@ -1,0 +1,17 @@
+.leaflet-radar {
+       
+        /* from leaflet-control-layers */
+        border-radius: 5px;
+        background: rgba(255, 255, 255, 0.75);
+        border: 2px solid rgba(0, 0, 0, 0.2);
+        background-clip: padding-box;
+        padding: 5px;
+        height: 67.5px;
+}
+
+.leaflet-radar .leaflet-radar-timestamp {
+        text-align: center;
+}
+.leaflet-fade-anim .leaflet-tile,.leaflet-zoom-anim .leaflet-zoom-animated { 
+    will-change:auto !important; 
+}

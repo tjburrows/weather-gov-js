@@ -1,0 +1,33 @@
+.collapsible {
+    background-color: transparent;
+}
+
+.active, .collapsible:hover {
+    background-color: #d3d3d3;
+}
+
+.collapsible:after {
+    display: flex;
+    font-family: FontAwesome;
+    content: '\f055';
+    font-size: 16px;
+    justify-content: center;
+    align-items: center;
+}
+
+.active:after {
+    display: flex;
+    font-family: FontAwesome;
+    content: "\f056";
+    font-size: 16px;
+    justify-content: center;
+    align-items: center;
+}
+
+.content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.2s ease-out;
+    background-color: rgba(0,0,0,0.02);
+    margin-bottom: 0px;
+}
