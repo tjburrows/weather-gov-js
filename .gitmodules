@@ -1,0 +1,3 @@
+[submodule "leaflet-radar"]
+	path = leaflet-radar
+	url = https://github.com/tjburrows/leaflet-radar.git

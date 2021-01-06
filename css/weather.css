@@ -31,3 +31,7 @@
     background-color: rgba(0,0,0,0.02);
     margin-bottom: 0px;
 }
+
+.leaflet-fade-anim .leaflet-tile,.leaflet-zoom-anim .leaflet-zoom-animated { 
+     will-change:auto !important; 
+}
