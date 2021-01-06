@@ -260,10 +260,8 @@ async function getWeather(lat, lon, reverseGeo=false) {
         map.options.dragging = !L.Browser.mobile
     }
     else {
-//         mark.setLatLng([lat,lon])
         map.removeLayer(mark)
         map.panTo([lat,lon]);
-        
         mark = L.marker([lat,lon]).addTo(map);
     }
     
@@ -280,7 +278,7 @@ async function getWeather(lat, lon, reverseGeo=false) {
         const fetch_points = fetch_retry(pointsJson.properties.observationStations, fetchOptions, 10)
         const fetch_forecast = fetch_retry(pointsJson.properties.forecast, fetchOptions, 10)
         const [response_points, respose_forecast] = await Promise.all([fetch_points, fetch_forecast]);
-        const [stationsJson, forecastJson] = await Promise.all([(() => {return response_points.json()})(), (() => {return respose_forecast.json()})()]);
+        const [stationsJson] = await Promise.all([(() => {return response_points.json()})()]);
         const fetch_grid = fetch_retry(pointsJson.properties.forecastGridData, fetchOptions, 10)
         
         const station = stationsJson.features[0]
@@ -316,6 +314,7 @@ async function getWeather(lat, lon, reverseGeo=false) {
         nowDiv.appendChild(currentConditions)
 
         //  Create day by day summary
+        const [forecastJson] = await Promise.all([(() => {return respose_forecast.json()})()]);
         console.log("daydata:", forecastJson)
         const dayProps = forecastJson.properties
 
