@@ -1,3 +1,7 @@
 [submodule "leaflet-radar"]
 	path = leaflet-radar
 	url = https://github.com/tjburrows/leaflet-radar.git
+[submodule "tz-lookup-oss"]
+	path = tz-lookup-oss
+	url = https://github.com/tjburrows/tz-lookup-oss.git
+	branch = master
