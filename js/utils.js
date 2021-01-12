@@ -118,30 +118,31 @@ function generateDataOnDate2(gridProps, fields, startdate, enddate) {
     let dataStruct = {}
     fields.forEach(function (field, index) {
         if (field in gridProps) {
-            const numPoints = gridProps[field].values.length
+            const thisGridField = gridProps[field]
+            const numPoints = thisGridField.values.length
             const entryStruct = {'time':new Array(), 'data':new Array(), 'unit':''}
 
             //  Extract parameter unit
-            if ('uom' in gridProps[field])
-                entryStruct.unit = gridProps[field].uom.split(':')[1]
+            if ('uom' in thisGridField)
+                entryStruct.unit = thisGridField.uom.split(':')[1]
 
             //  Create array of data
             for (let i = 0; i < numPoints; i++) {
-                const iso8601String = gridProps[field].values[i].validTime
+                const iso8601String = thisGridField.values[i].validTime
 
                 const isoSplit = iso8601String.split('/')
                 const startTime = new Date(isoSplit[0])
                 const duration = parseDuration(isoSplit[1])
 
                 //  Only plot next 24 hours
-                if (startTime < enddate) {
+                if (startTime <= enddate) {
                     //  Repeat value for specified number of hours
                     for (let h = 0; h < duration; h++) {
                         const currentTime = new Date(startTime)
                         currentTime.setHours(currentTime.getHours() + h)
                         if (currentTime >= startdate && currentTime <= enddate) {
                             entryStruct.time.push(currentTime)
-                            entryStruct.data.push(gridProps[field].values[i].value)
+                            entryStruct.data.push(thisGridField.values[i].value)
                         }
                     }
                 }
@@ -188,7 +189,7 @@ function printError(message) {
 
 // Get coordinate of location
 async function geocode() {
-    const url = 'https://nominatim.openstreetmap.org/search?q=' + loc.value + '&format=json&limit=1'
+    const url = 'https://nominatim.openstreetmap.org/search?q=' + loc.value + '&countrycodes=us&format=json&limit=1'
     const response = await fetch_retry(url, {method:'GET'}, 5)
     const nomJson =  await (async () => {return await response.json()})()
     if (nomJson.length == 0) {
