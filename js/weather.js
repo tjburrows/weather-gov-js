@@ -30,8 +30,6 @@ function todayPlots(gridProps, todayObservationsJson, stationID, plotdiv, todayM
     let obsData = {'temperature':[], 'time':[]}
     let todayForecast
     let mostRecentObsTimeMinus1hr
-    var tomorrow1am = new Date(todayMidnight)
-    tomorrow1am.setHours(tomorrow1am.getHours() + 1)
     if (plotObservations) {
         todayIcon = todayObservationsJson.features[0].properties.icon
         const mostRecentObsTime = new Date(todayObservationsJson.features[0].properties.timestamp)
@@ -47,10 +45,10 @@ function todayPlots(gridProps, todayObservationsJson, stationID, plotdiv, todayM
                 obsData.time.push(new Date(todayObservationsJson.features[lenObs - 1 - i].properties.timestamp))
             }
         }
-        todayForecast = generateDataOnDate2(gridProps, todayFields, mostRecentObsTimeMinus1hr, tomorrow1am)
+        todayForecast = generateDataOnDate2(gridProps, todayFields, mostRecentObsTimeMinus1hr, todayMidnight)
     }
     else {
-        todayForecast = generateDataOnDate2(gridProps, todayFields, firstTime, tomorrow1am)
+        todayForecast = generateDataOnDate2(gridProps, todayFields, firstTime, todayMidnight)
     }
     
     // Find minimum and maximum temperature
@@ -139,9 +137,9 @@ function todayPlots(gridProps, todayObservationsJson, stationID, plotdiv, todayM
     const elem2 = plotdiv.appendChild(todayDiv2)
     var todayPrecipForecast
     if (plotObservations)
-        todayPrecipForecast = generateDataOnDate2(gridProps, ['quantitativePrecipitation', 'probabilityOfPrecipitation'], mostRecentObsTimeMinus1hr, tomorrow1am)
+        todayPrecipForecast = generateDataOnDate2(gridProps, ['quantitativePrecipitation', 'probabilityOfPrecipitation'], mostRecentObsTimeMinus1hr, todayMidnight)
     else
-        todayPrecipForecast = generateDataOnDate2(gridProps, ['quantitativePrecipitation', 'probabilityOfPrecipitation'], firstTime, tomorrow1am)
+        todayPrecipForecast = generateDataOnDate2(gridProps, ['quantitativePrecipitation', 'probabilityOfPrecipitation'], firstTime, todayMidnight)
 
     //  Determine whether to show inches bar chart
     //  Sum over all quantitative precipitation
@@ -230,6 +228,8 @@ async function getWeather(lat, lon, reverseGeo=false) {
     if (reverseGeo) {
         reverseGeocode(lat,lon)
     }
+    
+    console.log('Timezone: ', tzlookup(lat,lon))
 
     clearID('days')
     clearID('today')
@@ -267,9 +267,7 @@ async function getWeather(lat, lon, reverseGeo=false) {
     
     
     const fetchPoints = await fetch_retry('https://api.weather.gov/points/' + lat + ',' + lon, fetchOptions, 10)
-    console.log(fetchPoints)
     const pointsJson = await (() => {return fetchPoints.json()})()
-    console.log(pointsJson)
     if (pointsJson == null || pointsJson.length == 0) {
             printError('Error: Weather at this location is not available from Weather.gov.')
     }
