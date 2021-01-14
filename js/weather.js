@@ -24,7 +24,7 @@ function todayPlots(gridProps, todayObservationsJson, stationID, plotdiv, todayM
     var minTemp
     var maxTemp
     var todayIcon
-    todayObservationsJson.features = todayObservationsJson.features.slice(1,)
+//     todayObservationsJson.features = todayObservationsJson.features.slice(1,)
     const lenObs = todayObservationsJson.features.length
     var plotObservations = lenObs  > 0
     let obsData = {'temperature':[], 'time':[]}
