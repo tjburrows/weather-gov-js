@@ -18,7 +18,7 @@ loc.addEventListener("keyup", function(event) {
     }
 })
 
-function todayPlots(gridProps, todayObservationsJson, stationID, plotdiv, todayMidnight, lastMidnight, firstTime) {
+function todayPlots(gridProps, todayObservationsJson, stationID, plotdiv, todayMidnight, lastMidnight, firstTime, zoneData) {
     const todayFields = ['temperature']
     
     var minTemp
@@ -29,12 +29,9 @@ function todayPlots(gridProps, todayObservationsJson, stationID, plotdiv, todayM
     var plotObservations = lenObs  > 0
     let obsData = {'temperature':[], 'time':[]}
     let todayForecast
-    let mostRecentObsTimeMinus1hr
+    const mostRecentObsTimeMinus1hr = luxon.DateTime.fromISO(todayObservationsJson.features[0].properties.timestamp).minus({hours:1}).setZone(zoneData.zone)
     if (plotObservations) {
         todayIcon = todayObservationsJson.features[0].properties.icon
-        const mostRecentObsTime = new Date(todayObservationsJson.features[0].properties.timestamp)
-        mostRecentObsTimeMinus1hr = new Date(mostRecentObsTime)
-        mostRecentObsTimeMinus1hr.setHours(mostRecentObsTimeMinus1hr.getHours() - 1)
         for (let i = 0; i < lenObs; i++) {
             if (todayObservationsJson.features[lenObs - 1 - i].properties.temperature.value != null) {
                 if (todayObservationsJson.features[lenObs - 1 - i].properties.temperature.unitCode.includes('degC')) {
@@ -42,13 +39,13 @@ function todayPlots(gridProps, todayObservationsJson, stationID, plotdiv, todayM
                     todayObservationsJson.features[lenObs - 1 - i].properties.temperature.unitCode = 'degF'
                 }
                 obsData.temperature.push(todayObservationsJson.features[lenObs - 1 - i].properties.temperature.value)
-                obsData.time.push(new Date(todayObservationsJson.features[lenObs - 1 - i].properties.timestamp))
+                obsData.time.push(luxon.DateTime.fromISO(todayObservationsJson.features[lenObs - 1 - i].properties.timestamp).setZone(zoneData.zone).plus({minutes:zoneData.offset}).toJSDate())
             }
         }
-        todayForecast = generateDataOnDate2(gridProps, todayFields, mostRecentObsTimeMinus1hr, todayMidnight)
+        todayForecast = generateDataInDateRange(gridProps, todayFields, mostRecentObsTimeMinus1hr, todayMidnight, zoneData)
     }
     else {
-        todayForecast = generateDataOnDate2(gridProps, todayFields, firstTime, todayMidnight)
+        todayForecast = generateDataInDateRange(gridProps, todayFields, firstTime, todayMidnight, zoneData)
     }
     
     // Find minimum and maximum temperature
@@ -65,7 +62,7 @@ function todayPlots(gridProps, todayObservationsJson, stationID, plotdiv, todayM
     todayDiv.style.width = "100%"
     todayDiv.style.display = "inline-block"
     const elem = plotdiv.appendChild(todayDiv)
-
+    const timeRange = [lastMidnight.plus({minutes:zoneData.offset}).toJSDate(), todayMidnight.plus({minutes:zoneData.offset}).toJSDate()]
     //  Temperature line plot
     const layoutToday = {
         height: 200,
@@ -77,7 +74,7 @@ function todayPlots(gridProps, todayObservationsJson, stationID, plotdiv, todayM
             tickformat: '%-I %p',
             fixedrange: true,
             showgrid:false,
-            range: [lastMidnight, todayMidnight],
+            range: timeRange,
         },
         yaxis: {
             fixedrange: true,
@@ -137,9 +134,9 @@ function todayPlots(gridProps, todayObservationsJson, stationID, plotdiv, todayM
     const elem2 = plotdiv.appendChild(todayDiv2)
     var todayPrecipForecast
     if (plotObservations)
-        todayPrecipForecast = generateDataOnDate2(gridProps, ['quantitativePrecipitation', 'probabilityOfPrecipitation'], mostRecentObsTimeMinus1hr, todayMidnight)
+        todayPrecipForecast = generateDataInDateRange(gridProps, ['quantitativePrecipitation', 'probabilityOfPrecipitation'], mostRecentObsTimeMinus1hr, todayMidnight, zoneData)
     else
-        todayPrecipForecast = generateDataOnDate2(gridProps, ['quantitativePrecipitation', 'probabilityOfPrecipitation'], firstTime, todayMidnight)
+        todayPrecipForecast = generateDataInDateRange(gridProps, ['quantitativePrecipitation', 'probabilityOfPrecipitation'], firstTime, todayMidnight, zoneData)
 
     //  Determine whether to show inches bar chart
     //  Sum over all quantitative precipitation
@@ -161,7 +158,7 @@ function todayPlots(gridProps, todayObservationsJson, stationID, plotdiv, todayM
             type:'date',
             tickformat: '%-I %p',
             fixedrange: true,
-            range: [lastMidnight, todayMidnight],
+            range: timeRange,
             showgrid:false,
         },
         yaxis: {
@@ -272,6 +269,9 @@ async function getWeather(lat, lon, reverseGeo=false) {
     }
     
     const thisTimeZone = tzlookup(lat,lon)
+    const localTime = luxon.DateTime.local().setZone(thisTimeZone)
+    const thisOffset = localTime.offset - luxon.DateTime.local().offset
+    const zoneData = {zone:thisTimeZone, offset:thisOffset}
 
     clearID('days')
     clearID('today')
@@ -321,14 +321,9 @@ async function getWeather(lat, lon, reverseGeo=false) {
         const fetch_grid = fetch_retry(pointsJson.properties.forecastGridData, fetchOptions, 10)
         drawLatestObservation(stationsJson)
         const stationID = stationsJson.features[0].properties.stationIdentifier
-        let todayMidnight = new Date()  
-        todayMidnight.setHours(24)
-        todayMidnight.setMinutes(0)
-        todayMidnight.setSeconds(0)
-        todayMidnight.setMilliseconds(0)
-        let lastMidnight = new Date(todayMidnight)
-        lastMidnight.setDate(lastMidnight.getDate() - 1)
-        const fetch_obs = fetch_retry('https://api.weather.gov/stations/' + stationID + '/observations?start=' + encodeURIComponent(lastMidnight.toISOString().slice(0,-5) + '+00:00'), fetchOptions, 5)
+        const todayMidnight = luxon.DateTime.local().setZone(thisTimeZone).set({hour:24,minute:0,second:0,millisecond:0})
+        let lastMidnight = todayMidnight.minus({days:1})
+        const fetch_obs = fetch_retry('https://api.weather.gov/stations/' + stationID + '/observations?start=' + encodeURIComponent(lastMidnight.toISO({suppressMilliseconds:true})), fetchOptions, 5)
         
         //  Create day by day summary
         const [respose_forecast] = await Promise.all([fetch_forecast]);
@@ -354,8 +349,6 @@ async function getWeather(lat, lon, reverseGeo=false) {
         document.getElementById('summary').appendChild(nowDiv2)
         const dayPeriods = dayProps.periods
         
-        
-        
         var currentDay, todayData, xExtent
         
         //  Create detailed forecasts
@@ -367,20 +360,16 @@ async function getWeather(lat, lon, reverseGeo=false) {
         else {
             console.log('grid:', gridJson)
             const gridProps = gridJson.properties
-            const firstTime = new Date(gridProps.temperature.values[0].validTime.split('/')[0])
-            if (firstTime == todayMidnight)
-                todayMidnight.setDate(todayMidnight.getDate()+1)
+            const firstTime = luxon.DateTime.fromISO(gridProps.temperature.values[0].validTime.split('/')[0]).setZone(thisTimeZone)
             
             // Get final midnight time in grid data
-            const lastGridTime = new Date(gridProps.temperature.values.slice(-1)[0].validTime.split('/')[0])
-            lastGridTime.setHours(lastGridTime.getHours() + parseDuration(gridProps.temperature.values.slice(-1)[0].validTime))
-            lastGridTime.setHours(0)
+            const lastGridMidnightAndDuration = gridProps.temperature.values.slice(-1)[0].validTime.split('/')
+            const lastGridMidnight = luxon.DateTime.fromISO(lastGridMidnightAndDuration[0]).setZone(thisTimeZone).plus(luxon.Duration.fromISO(lastGridMidnightAndDuration[1])).startOf('day')
             const fields = ['temperature', 'apparentTemperature', 'probabilityOfPrecipitation', 'quantitativePrecipitation']
-            const plotData = generateDataOnDate2(gridProps, fields, todayMidnight, lastGridTime)
-            const numDaysAfterToday = (lastGridTime - todayMidnight) / (1000 * 60 * 60 * 24)
+            const plotData = generateDataInDateRange(gridProps, fields, todayMidnight, lastGridMidnight, zoneData)
+            const numDaysAfterToday = luxon.Interval.fromDateTimes(todayMidnight, lastGridMidnight).length('days')
             for (let i = 0; i <= numDaysAfterToday; i++) {
-                const thisDate = new Date(lastMidnight)
-                thisDate.setDate(thisDate.getDate() + i)
+                const thisDate = lastMidnight.plus({days:i})
                 
                 // Make button div
                 const div = document.createElement('button');
@@ -414,7 +403,7 @@ async function getWeather(lat, lon, reverseGeo=false) {
                 
                 // find corresponding day data
                 for (let d = 0; d < dayPeriods.length; d++) {
-                    if (dayPeriods[d].startTime.split('T')[0].split('-').slice(-1)[0] == thisDate.getDate()) {
+                    if (dayPeriods[d].startTime.split('T')[0].split('-').slice(-1)[0] == thisDate.day) {
                         currentDay = dayPeriods[d]
                         break
                     }
@@ -427,7 +416,7 @@ async function getWeather(lat, lon, reverseGeo=false) {
                     const todayObservationsJson =  await (async () => {return await response_obs.json()})()
                     
                     console.log("todays observations:", todayObservationsJson)
-                    todayData = todayPlots(gridProps, todayObservationsJson, stationID, content, todayMidnight, lastMidnight, firstTime)
+                    todayData = todayPlots(gridProps, todayObservationsJson, stationID, content, todayMidnight, lastMidnight, firstTime, zoneData)
                 }
                 else {
                     Object.keys(plotData).forEach(function (field, index) {
@@ -458,6 +447,7 @@ async function getWeather(lat, lon, reverseGeo=false) {
                             break
                         }
                     }
+                    const timeRange = [thisDate.plus({minutes:zoneData.offset}).toJSDate(), thisDate.plus({days:1}).plus({minutes:zoneData.offset}).toJSDate()]
                     
                     //  Temperature line plot
                     const layout2 = {
@@ -470,7 +460,7 @@ async function getWeather(lat, lon, reverseGeo=false) {
                             tickformat: '%-I %p',
                             fixedrange: true,
                             showgrid:false,
-//                             range: [xmin, xmax],
+                            range: timeRange,
                         },
                         yaxis: {
                             fixedrange: true,
@@ -548,7 +538,7 @@ async function getWeather(lat, lon, reverseGeo=false) {
                             type:'date',
                             tickformat: '%-I %p',
                             fixedrange: true,
-//                             range: [xmin, xmax],
+                            range: timeRange,
                             showgrid:false,
                         },
                         yaxis: {
@@ -623,7 +613,6 @@ async function getWeather(lat, lon, reverseGeo=false) {
                 const plusPadding = 14
                 const xRange = [svgBarTextWidth + svgBarLabelPadding, buttonElem.clientWidth - svgBarLabelPadding - plusPadding - iconSize - iconSpace]
                 const barXScale = d3.scaleLinear().range(xRange).domain(xExtent)
-                const dateFormatter = d3.timeFormat('%a')
                 const dateParser = d3.timeParse('%Y-%m-%d')
                 const weatherIcon = document.createElement("img")
                 weatherIcon.src = currentDay.icon
@@ -645,7 +634,7 @@ async function getWeather(lat, lon, reverseGeo=false) {
                     .attr('text-anchor', 'start')
                     .style('font-weight', 'bold')
                     .style('font-size', '15px')
-                    .text(i == 0 ? 'Today' : dateFormatter(thisDate))
+                    .text(i == 0 ? 'Today' : thisDate.weekdayShort)
                 const xScaleMin = barXScale(thisTempExtent[0])
                 const xScaleMax = barXScale(thisTempExtent[1])
                 //  Create rectangle

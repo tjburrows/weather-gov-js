@@ -55,66 +55,7 @@ function m2in(meters) {
 }
 
 
-function generateDataOnDate(gridProps, fields, date, offset=24) {
-    let dataStruct = {}
-    fields.forEach(function (field, index) {
-        if (field in gridProps) {
-            const numPoints = gridProps[field].values.length
-            const entryStruct = {'time':new Array(), 'data':new Array(), 'unit':''}
-
-            //  Extract parameter unit
-            if ('uom' in gridProps[field])
-                entryStruct.unit = gridProps[field].uom.split(':')[1]
-
-            //  Get date of today, and date in 24 hours
-            const datePlus24h = new Date(date)
-            datePlus24h.setHours(datePlus24h.getHours() + offset)
-
-            //  Create array of data
-            for (let i = 0; i < numPoints; i++) {
-                const iso8601String = gridProps[field].values[i].validTime
-
-                const isoSplit = iso8601String.split('/')
-                const startTime = new Date(isoSplit[0])
-                const duration = parseDuration(isoSplit[1])
-
-                //  Only plot next 24 hours
-                if (startTime < datePlus24h) {
-                    //  Repeat value for specified number of hours
-                    for (let h = 0; h < duration; h++) {
-                        const currentTime = new Date(startTime)
-                        currentTime.setHours(currentTime.getHours() + h)
-                        if (currentTime >= date && currentTime <= datePlus24h) {
-                            entryStruct.time.push(currentTime)
-                            entryStruct.data.push(gridProps[field].values[i].value)
-                        }
-                    }
-                }
-            }
-            if (entryStruct.unit.includes('degC')) {
-                for (let i = 0; i < entryStruct.data.length; i++) {
-                    entryStruct.data[i] = c2f(entryStruct.data[i])
-                }
-                entryStruct.unit = degreeSymbol + 'F'
-            }
-            else if (entryStruct.unit.includes('degF'))
-                entryStruct.unit = degreeSymbol + 'F'
-            if (entryStruct.unit == 'mm') {
-                for (let i = 0; i < entryStruct.data.length; i++) {
-                    entryStruct.data[i] = entryStruct.data[i] / 25.4
-                }
-                entryStruct.unit = 'in'
-            }
-            dataStruct[field] = entryStruct
-        }
-        else {
-            console.log('Error: ' + field + ' not in properties')
-        }
-    })
-    return dataStruct
-}
-
-function generateDataOnDate2(gridProps, fields, startdate, enddate) {
+function generateDataInDateRange(gridProps, fields, startdate, enddate, zoneData) {
     let dataStruct = {}
     fields.forEach(function (field, index) {
         if (field in gridProps) {
@@ -128,25 +69,20 @@ function generateDataOnDate2(gridProps, fields, startdate, enddate) {
 
             //  Create array of data
             for (let i = 0; i < numPoints; i++) {
-                const iso8601String = thisGridField.values[i].validTime
+                const gridInterval = luxon.Interval.fromISO(thisGridField.values[i].validTime)
 
-                const isoSplit = iso8601String.split('/')
-                const startTime = new Date(isoSplit[0])
-                const duration = parseDuration(isoSplit[1])
-
-                //  Only plot next 24 hours
-                if (startTime <= enddate) {
+                if (gridInterval.start <= enddate) {
                     //  Repeat value for specified number of hours
-                    for (let h = 0; h < duration; h++) {
-                        const currentTime = new Date(startTime)
-                        currentTime.setHours(currentTime.getHours() + h)
+                    for (let h = 0; h < gridInterval.length('hours'); h++) {
+                        const currentTime = gridInterval.start.plus({hours:h}).setZone(zoneData.zone)
                         if (currentTime >= startdate && currentTime <= enddate) {
-                            entryStruct.time.push(currentTime)
+                            entryStruct.time.push(currentTime.plus({minutes:zoneData.offset}).toJSDate())
                             entryStruct.data.push(thisGridField.values[i].value)
                         }
                     }
                 }
             }
+            
             if (entryStruct.unit.includes('degC')) {
                 for (let i = 0; i < entryStruct.data.length; i++) {
                     entryStruct.data[i] = c2f(entryStruct.data[i])
@@ -169,18 +105,6 @@ function generateDataOnDate2(gridProps, fields, startdate, enddate) {
     })
     return dataStruct
 }
-
-function parseDuration(string) {
-    const dayFind = /(\d+)D/
-    const hourFind = /(\d+)H/
-    let hourOffset = 0
-    if (string.includes('D'))
-        hourOffset += parseInt(string.match(dayFind)[1]) * 24
-    if (string.includes('H'))
-        hourOffset += parseInt(string.match(hourFind)[1])
-    return hourOffset
-}
-
 
 //  Prints specified error
 function printError(message) {
