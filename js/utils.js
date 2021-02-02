@@ -57,6 +57,7 @@ function m2in(meters) {
 
 function generateDataInDateRange(gridProps, fields, startdate, enddate, zoneData) {
     let dataStruct = {}
+    const zeroThreshold = 0.01
     fields.forEach(function (field, index) {
         if (field in gridProps) {
             const thisGridField = gridProps[field]
@@ -76,7 +77,7 @@ function generateDataInDateRange(gridProps, fields, startdate, enddate, zoneData
                     for (let h = 0; h < gridInterval.length('hours'); h++) {
                         const currentTime = gridInterval.start.plus({hours:h}).setZone(zoneData.zone)
                         if (currentTime >= startdate && currentTime <= enddate) {
-                            entryStruct.time.push(currentTime.plus({minutes:zoneData.offset}).toJSDate())
+                            entryStruct.time.push(currentTime.plus({minutes:zoneData.offset}))
                             entryStruct.data.push(thisGridField.values[i].value)
                         }
                     }
@@ -190,4 +191,58 @@ async function button2Func() {
         await geocode()
         toggleButtonDisable()
     }
+}
+
+function alignTwoCharts(chartA, chartB, threshold = 0.001) {
+    let leftDiff = 1
+    let widthDiff = 1
+    let count = 0
+    while (Math.abs(leftDiff) > threshold && Math.abs(widthDiff) > threshold ) {
+        leftDiff = chartA.chartArea.left - chartB.chartArea.left
+        widthDiff = (chartA.chartArea.right - chartA.chartArea.left) - (chartB.chartArea.right - chartB.chartArea.left)
+        
+        if (leftDiff < 0)
+            chartA.config.options.layout.padding.left -= leftDiff
+        else
+            chartB.config.options.layout.padding.left += leftDiff
+
+        if (widthDiff < 0)
+            chartB.config.options.layout.padding.right -=  widthDiff
+        else
+            chartA.config.options.layout.padding.right +=  widthDiff
+        
+        chartA.update()
+        chartB.update()
+        count += 1
+    }
+}
+
+function isArrayNonzero(array, threshold=0.01) {
+    for (let i = 0; i < array.length; i++) {
+        if (array[i] > threshold)
+            return true
+    }
+    return false
+}
+
+function arrayToChartJSData(x,y) {
+    const numPoints = x.length
+    const data = Array(numPoints)
+    for (let i = 0; i < numPoints; i++) {
+        data[i] = {x:x[i],y:y[i]}
+    }
+    return data
+}
+
+function tooltipRoundValue(tooltipItem, data) {
+    var label = data.datasets[tooltipItem.datasetIndex].label || '';
+
+    if (label) {
+        label += ': ';
+    }
+    if (Number.isInteger(tooltipItem.yLabel))
+        label += tooltipItem.yLabel
+    else
+        label += Number.parseFloat(tooltipItem.yLabel).toFixed(2)
+    return label;
 }

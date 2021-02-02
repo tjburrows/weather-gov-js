@@ -35,3 +35,10 @@
 .leaflet-fade-anim .leaflet-tile,.leaflet-zoom-anim .leaflet-zoom-animated { 
      will-change:auto !important; 
 }
+
+.canvasParent {
+    width: 100%;
+    height: 250px;
+    position: 'relative';
+    display: 'inline-block';
+}
