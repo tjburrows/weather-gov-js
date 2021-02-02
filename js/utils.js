@@ -57,6 +57,7 @@ function m2in(meters) {
 
 function generateDataInDateRange(gridProps, fields, startdate, enddate, zoneData) {
     let dataStruct = {}
+    const certainFields=['quantitativePrecipitation','snowfallAmount']
     const zeroThreshold = 0.01
     fields.forEach(function (field, index) {
         if (field in gridProps) {
@@ -78,7 +79,11 @@ function generateDataInDateRange(gridProps, fields, startdate, enddate, zoneData
                         const currentTime = gridInterval.start.plus({hours:h}).setZone(zoneData.zone)
                         if (currentTime >= startdate && currentTime <= enddate) {
                             entryStruct.time.push(currentTime.plus({minutes:zoneData.offset}))
-                            entryStruct.data.push(thisGridField.values[i].value)
+                            if (certainFields.includes(field) )
+                                entryStruct.data.push(thisGridField.values[i].value /  gridInterval.length('hours'))
+                            else
+                                entryStruct.data.push(thisGridField.values[i].value)
+                                
                         }
                     }
                 }
