@@ -118,32 +118,35 @@ function printError(message) {
 }
 
 // Get coordinate of location
-async function geocode() {
-    const url = 'https://nominatim.openstreetmap.org/search?q=' + loc.value + '&countrycodes=us&format=json&limit=1'
+async function geocode(location=document.getElementById("textinput")) {
+    const url = 'https://nominatim.openstreetmap.org/search?q=' + location.value + '&countrycodes=us&format=json&limit=1'
     const response = await fetch_retry(url, {method:'GET'}, 5)
     const nomJson =  await (async () => {return await response.json()})()
     if (nomJson.length == 0) {
-        printError('Error: Location not identifiable from \"' + loc.value + '\".  Try again.')
+        printError('Error: Location not identifiable from \"' + location.value + '\".  Try again.')
     }
     else {
-        const lat = nomJson[0].lat
-        const lon = nomJson[0].lon
-        console.log('Geocode success: ' + loc.value + ' -> (' + lat + ', ' + lon + ')' )
+        const lat = parseFloat(nomJson[0].lat)
+        const lon = parseFloat(nomJson[0].lon)
+        console.log('Geocode success: ' + location.value + ' -> (' + lat + ', ' + lon + ')' )
         await getWeather(lat,lon)
     }
 }
 
-function reverseGeocode(lat,lon) {
+function reverseGeocode(lat,lon, zoom=14, cutCountry=true) {
     const url = 'https://nominatim.openstreetmap.org/reverse?lat=' + lat + '&lon=' + lon + '&format=json&zoom=14'
     fetch_retry(url, {method:'GET'}, 5)
     .then(function(response) { return response.json(); })
     .then(function(reverseJson) {
         clearID('errors')
-        if (reverseJson.length == 0) {
-            printError('Error: Reverse geocoding failed.  Input: lat=' + lat + ', lon=' + lon)
+        if (reverseJson.error) {
+            document.getElementById("textinput").value= lat.toFixed(5) + ', ' + lon.toFixed(5) 
         }
         else {
-            document.getElementById("textinput").value = reverseJson.display_name.slice(0, -(reverseJson.address.country.length + 2));
+            if (cutCountry) {
+                reverseJson.display_name = reverseJson.display_name.slice(0, -(reverseJson.address.country.length + 2))
+            }
+            document.getElementById("textinput").value = reverseJson.display_name;
         }
     })
 }
@@ -239,7 +242,7 @@ function arrayToChartJSData(x,y) {
     return data
 }
 
-function tooltipRoundValue(tooltipItem, data) {
+function tooltipRoundValue(tooltipItem, data, len=2) {
     var label = data.datasets[tooltipItem.datasetIndex].label || '';
 
     if (label) {
@@ -248,6 +251,9 @@ function tooltipRoundValue(tooltipItem, data) {
     if (Number.isInteger(tooltipItem.yLabel))
         label += tooltipItem.yLabel
     else
-        label += Number.parseFloat(tooltipItem.yLabel).toFixed(2)
+        label += Number.parseFloat(tooltipItem.yLabel).toFixed(len)
     return label;
+}
+function tooltipRoundValue0(tooltipItem, data) {
+    return tooltipRoundValue(tooltipItem, data, 0)
 }

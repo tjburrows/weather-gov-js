@@ -5,12 +5,11 @@ const fetchOptions = {
 }
 
 //  Create text search box
-const loc = document.getElementById("textinput")
 var mapDrawn = false
 var mark
 
 //  Allow pressing enter to submit
-loc.addEventListener("keyup", function(event) {
+document.getElementById("textinput").addEventListener("keyup", function(event) {
     if (event.keyCode === 13) {
         toggleButtonDisable()
         event.preventDefault()
@@ -18,19 +17,97 @@ loc.addEventListener("keyup", function(event) {
     }
 })
 
+
+function temperaturePlotter(canvas, timeAxis, dataPoints, syncIndex, lat, lon) {
+    const sunRiseSet = getSunriseSunset(lat, lon, timeAxis[0].ticks.min)
+    const tempChartConfig = {
+        type: 'line',
+        data: {
+            datasets: [
+                {
+                    label: 'Temperature',
+                    data: arrayToChartJSData(dataPoints['temperature'].time, dataPoints['temperature'].data),
+                    fill: false,
+                    cubicInterpolationMode: 'monotone',
+                    borderColor: '#000',
+                    backgroundColor: '#000',
+                    interpolate: true,
+                },
+                
+            ]
+        },
+        options: {
+            maintainAspectRatio: false,
+            scales: {
+                xAxes: timeAxis,
+                yAxes: [{
+                    scaleLabel: {
+                        display: false,
+                        labelString: 'Temperature ' + degreeSymbol + 'F',
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return  value + degreeSymbol;
+                        },
+                    },
+                    type: 'linear',
+                }]
+            },
+            tooltips: {
+                mode: 'interpolate',
+//                 axis: 'x',
+//                 position: 'nearest',
+                intersect: false,
+                displayColors: true,
+                callbacks:{label:tooltipRoundValue0}
+            },
+            hover : {
+                animationDuration: 10,
+            },
+            legend: {
+                display: false,
+            },
+            title: {
+                display: true,
+                text: 'Sunrise: ' + 
+                    sunRiseSet.sunrise.toLocaleString({ hour: '2-digit', minute: '2-digit', hour12: true }) + 
+                    ',  Sunset: ' + 
+                    sunRiseSet.sunset.toLocaleString({ hour: '2-digit', minute: '2-digit', hour12: true }),
+            },
+            plugins: chartJSPlugins(syncIndex),
+        },
+    }
+
+    if (isArrayNonzero(dataPoints.apparentTemperature.data)) {
+        tempChartConfig.options.legend.display = true
+        tempChartConfig.data.datasets.push({
+            label: 'Feels Like',
+            data: arrayToChartJSData(dataPoints['apparentTemperature'].time, dataPoints['apparentTemperature'].data),
+            fill: false,
+            cubicInterpolationMode: 'monotone',
+            borderColor: '#888',
+            backgroundColor: '#888',
+            interpolate: true,
+        })
+    }
+    const tempChartJS = new Chart(canvas, tempChartConfig)
+    return tempChartJS
+}
+
 function precipPlotter(canvas, timeAxis, dataPoints, syncIndex){
     const precipChartConfig = {
         type: 'line',
         data: {
             datasets: [
                 {
-                    label: '% Chance',
+                    label: '% Chance Precip',
                     data: arrayToChartJSData(dataPoints.probabilityOfPrecipitation.time, dataPoints.probabilityOfPrecipitation.data),
                     fill: false,
                     cubicInterpolationMode: 'monotone',
                     borderColor: '#000',
                     backgroundColor: '#000',
                     yAxisID: 'chance',
+                    interpolate: 'true,'
                 },
             ]
         },
@@ -40,7 +117,7 @@ function precipPlotter(canvas, timeAxis, dataPoints, syncIndex){
                 xAxes: timeAxis,
                 yAxes: [{
                     scaleLabel: {
-                        display: true,
+                        display: false,
                         labelString: '% Chance',
                     },
                     ticks: {
@@ -57,9 +134,7 @@ function precipPlotter(canvas, timeAxis, dataPoints, syncIndex){
                 }]
             },
             tooltips: {
-                mode: 'nearest',
-                axis: 'x',
-                position: 'nearest',
+                mode: 'interpolate',
                 intersect: false,
                 displayColors: false,
                 callbacks:{label:tooltipRoundValue}
@@ -72,7 +147,7 @@ function precipPlotter(canvas, timeAxis, dataPoints, syncIndex){
             },
             plugins: chartJSPlugins(syncIndex),
             title: {
-                display: true,
+                display: false,
                 text: 'Precipitation',
             }
         },
@@ -83,6 +158,7 @@ function precipPlotter(canvas, timeAxis, dataPoints, syncIndex){
     
     if (plotQPrec) {
         const cumulativeSum = (sum => value => sum += value)(0);
+        
         dataPoints.quantitativePrecipitation.data = dataPoints.quantitativePrecipitation.data.map(cumulativeSum)
         precipChartConfig.data.datasets.push({
             label: 'Cumulative Precip',
@@ -92,6 +168,7 @@ function precipPlotter(canvas, timeAxis, dataPoints, syncIndex){
             borderColor: '#1F77B4',
             backgroundColor: '#1F77B4',
             yAxisID: 'inches',
+            interpolate: 'true',
         })
     }
     
@@ -106,6 +183,7 @@ function precipPlotter(canvas, timeAxis, dataPoints, syncIndex){
             borderColor: '#b971e2',
             backgroundColor: '#b971e2',
             yAxisID: 'inches',
+            interpolate: 'true',
         })
     }
     
@@ -146,12 +224,13 @@ function chartJsTimeAxis(timeRange) {
                 bounds: 'ticks',
             },
             scaleLabel: {
-                display: true,
+                display: false,
                 labelString: 'Time',
             },
             gridLines: {
                 display: false,
-            }
+            },
+            id: 'time',
         }]
 }
 
@@ -173,17 +252,18 @@ function chartJSPlugins(groupNumber) {
 }
 
 
-function todayPlots(gridProps, todayObservationsJson, stationID, plotdiv, todayMidnight, lastMidnight, firstTime, zoneData) {
-    const todayFields = ['temperature']
+function todayPlots(gridProps, todayObservationsJson, stationID, plotdiv, todayMidnight, lastMidnight, firstTime, zoneData, lat, lon) {
+    const todayFields = ['temperature', 'apparentTemperature']
     
     var minTemp
     var maxTemp
     var todayIcon
 //     todayObservationsJson.features = todayObservationsJson.features.slice(1,)
     const lenObs = todayObservationsJson.features.length
-    var plotObservations = lenObs  > 0
+    var plotObservations = (lenObs  > 0)
     let obsData = {'temperature':[], 'time':[]}
     let todayForecast
+    var tempTime
     const mostRecentObsTimeMinus1hr = luxon.DateTime.fromISO(todayObservationsJson.features[0].properties.timestamp).minus({hours:1}).setZone(zoneData.zone)
     if (plotObservations) {
         todayIcon = todayObservationsJson.features[0].properties.icon
@@ -193,15 +273,17 @@ function todayPlots(gridProps, todayObservationsJson, stationID, plotdiv, todayM
                     todayObservationsJson.features[lenObs - 1 - i].properties.temperature.value = c2f(todayObservationsJson.features[lenObs - 1 - i].properties.temperature.value)
                     todayObservationsJson.features[lenObs - 1 - i].properties.temperature.unitCode = 'degF'
                 }
-                obsData.temperature.push(todayObservationsJson.features[lenObs - 1 - i].properties.temperature.value)
-                obsData.time.push(luxon.DateTime.fromISO(todayObservationsJson.features[lenObs - 1 - i].properties.timestamp).setZone(zoneData.zone).plus({minutes:zoneData.offset}))
+                tempTime = luxon.DateTime.fromISO(todayObservationsJson.features[lenObs - 1 - i].properties.timestamp).setZone(zoneData.zone).plus({minutes:zoneData.offset})
+                if (true || obsData.time.length == 0) {
+                    if (obsData.time.length  == 0 || tempTime.diff(obsData.time.slice(-1)[0], 'minutes').minutes > 55) {
+                            obsData.temperature.push(todayObservationsJson.features[lenObs - 1 - i].properties.temperature.value)
+                            obsData.time.push(tempTime)
+                    }                    
+                }
             }
         }
-        todayForecast = generateDataInDateRange(gridProps, todayFields, mostRecentObsTimeMinus1hr, todayMidnight, zoneData)
     }
-    else {
-        todayForecast = generateDataInDateRange(gridProps, todayFields, firstTime, todayMidnight, zoneData)
-    }
+    todayForecast = generateDataInDateRange(gridProps, todayFields, firstTime, todayMidnight, zoneData)
     
     // Find minimum and maximum temperature
     minTemp = Math.min(...todayForecast['temperature'].data)
@@ -219,68 +301,22 @@ function todayPlots(gridProps, todayObservationsJson, stationID, plotdiv, todayM
     todayDiv.appendChild(todayCanvas1)
     const elem = plotdiv.appendChild(todayDiv)
     const timeRange = [lastMidnight.plus({minutes:zoneData.offset}), todayMidnight.plus({minutes:zoneData.offset})]
-        
     const timeAxis = chartJsTimeAxis(timeRange)
-    const tempChartConfig = {
-        type: 'line',
-        data: {
-            datasets: [
-                {
-                    label: 'Forecast',
-                    data: arrayToChartJSData(todayForecast['temperature'].time, todayForecast['temperature'].data),
-                    fill: false,
-                    cubicInterpolationMode: 'monotone',
-                    borderColor: '#000',
-                    backgroundColor: '#000',
-                },
-            ]
-        },
-        options: {
-            maintainAspectRatio: false,
-            scales: {
-                xAxes: timeAxis,
-                yAxes: [{
-                    scaleLabel: {
-                        display: true,
-                        labelString: 'Temperature ' + degreeSymbol + 'F',
-                    },
-                    ticks: {
-                        callback: function(value) {
-                            return  value + degreeSymbol;
-                        },
-                    },
-                    type: 'linear',
-                }]
-            },
-            tooltips: {
-                mode: 'nearest',
-                axis: 'x',
-                position: 'nearest',
-                intersect: false,
-                displayColors: false,
-                callbacks:{label:tooltipRoundValue}
-            },
-            hover : {
-                animationDuration: 10,
-            },
-            legend: {
-                display: false,
-            },
-            plugins: chartJSPlugins(0),
-        },
-    }
+    const tempChartJS = temperaturePlotter(todayCanvas1, timeAxis, todayForecast, 0, lat, lon)
     if (plotObservations) {
-        tempChartConfig.data.datasets.push({
+        tempChartJS.data.datasets.push({
             label: 'Observed',
             data: arrayToChartJSData(obsData.time, obsData.temperature),
             fill: false,
             cubicInterpolationMode: 'monotone',
-            borderColor: '#888',
-            backgroundColor: '#888',
+            borderColor: '#000',
+            backgroundColor: '#000',
+            borderDash: [2,2],
+            pointRadius: 0,
+            interpolate: true,
         })
-        tempChartConfig.options.legend.display = true
+        tempChartJS.options.legend.display = true
     }
-    const tempChartJS = new Chart(todayCanvas1, tempChartConfig)
         
     // Today Precipitation plot
     const todayDiv2 = document.createElement('div')
@@ -289,9 +325,7 @@ function todayPlots(gridProps, todayObservationsJson, stationID, plotdiv, todayM
     todayDiv2.appendChild(todayCanvas2)
     const elem2 = plotdiv.appendChild(todayDiv2)
     const todayPrecipForecast = generateDataInDateRange(gridProps, ['quantitativePrecipitation', 'probabilityOfPrecipitation', 'snowfallAmount'], firstTime, todayMidnight, zoneData)
-
     const todayPrecipChart = precipPlotter(todayCanvas2, timeAxis, todayPrecipForecast, 0)
-    
     alignTwoCharts(tempChartJS, todayPrecipChart)
     return {'minTemp':minTemp, 'maxTemp':maxTemp, 'icon':todayIcon}
 }
@@ -362,6 +396,15 @@ async function drawMap(lat, lon) {
     }
 }
 
+function getSunriseSunset(lat, lon, date){
+    const thisJD = getJD(date.year, date.month, date.day)
+    const sunriseObject = calcSunriseSet(true, thisJD , lat, lon, date.offset / 60)
+    const sunsetObject = calcSunriseSet(false, thisJD, lat, lon, date.offset / 60)
+    const sunrise = date.set({hour:0,minute:0,second:0}).plus({minutes:sunriseObject.timelocal})
+    const sunset = date.set({hour:0,minute:0,second:0}).plus({minutes:sunsetObject.timelocal})
+    return {sunrise:sunrise,sunset:sunset}
+}
+
 //  Get weather data
 const degreeSymbol = String.fromCharCode(176)
 async function getWeather(lat, lon, reverseGeo=false) {
@@ -370,13 +413,13 @@ async function getWeather(lat, lon, reverseGeo=false) {
         reverseGeocode(lat,lon)
     }
     
+    // Timezone calc
     const thisTimeZone = tzlookup(lat,lon)
     const localTime = luxon.DateTime.local().setZone(thisTimeZone)
-    const thisOffset = localTime.offset - luxon.DateTime.local().offset
+    const thisOffset = localTime.offset - luxon.DateTime.local().offset    
     const zoneData = {zone:thisTimeZone, offset:thisOffset}
-
+    
     clearID('days')
-    clearID('today')
     clearID('errors')
     clearID('summary')
     clearID('conditions')
@@ -493,7 +536,7 @@ async function getWeather(lat, lon, reverseGeo=false) {
                     const todayObservationsJson =  await (async () => {return await response_obs.json()})()
                     
                     console.log("todays observations:", todayObservationsJson)
-                    todayData = todayPlots(gridProps, todayObservationsJson, stationID, content, todayMidnight, lastMidnight, firstTime, zoneData)
+                    todayData = todayPlots(gridProps, todayObservationsJson, stationID, content, todayMidnight, lastMidnight, firstTime, zoneData, lat, lon)
                 }
                 else {
                     Object.keys(plotData).forEach(function (field, index) {
@@ -520,68 +563,8 @@ async function getWeather(lat, lon, reverseGeo=false) {
                     // Determine if apparent temp is different from actual
                     const timeRange = [thisDate.plus({minutes:zoneData.offset}), thisDate.plus({days:1}).plus({minutes:zoneData.offset})]
                     const timeAxis = chartJsTimeAxis(timeRange)
-                    const tempChartConfig = {
-                        type: 'line',
-                        data: {
-                            datasets: [
-                                {
-                                    label: 'Temperature',
-                                    data: arrayToChartJSData(tempData['temperature'].time, tempData['temperature'].data),
-                                    fill: false,
-                                    cubicInterpolationMode: 'monotone',
-                                    borderColor: '#000',
-                                    backgroundColor: '#000',
-                                },
-                                
-                            ]
-                        },
-                        options: {
-                            maintainAspectRatio: false,
-                            scales: {
-                                xAxes: timeAxis,
-                                yAxes: [{
-                                    scaleLabel: {
-                                        display: true,
-                                        labelString: 'Temperature ' + degreeSymbol + 'F',
-                                    },
-                                    ticks: {
-                                        callback: function(value) {
-                                            return  value + degreeSymbol;
-                                        },
-                                    },
-                                    type: 'linear',
-                                }]
-                            },
-                            tooltips: {
-                                mode: 'nearest',
-                                axis: 'x',
-                                position: 'nearest',
-                                intersect: false,
-                                displayColors: true,
-                            },
-                            hover : {
-                                animationDuration: 10,
-                            },
-                            legend: {
-                                display: false,
-                            },
-                            plugins: chartJSPlugins(i+1),
-                        },
-                    }
                     
-                    if (isArrayNonzero(tempData.apparentTemperature.data)) {
-                        tempChartConfig.options.legend.display = true
-                        tempChartConfig.data.datasets.push({
-                            label: 'Feels Like',
-                            data: arrayToChartJSData(tempData['apparentTemperature'].time, tempData['apparentTemperature'].data),
-                            fill: false,
-                            cubicInterpolationMode: 'monotone',
-                            borderColor: '#888',
-                            backgroundColor: '#888',
-                        })
-                    }
-                    const tempChartJS = new Chart(div21, tempChartConfig)
-                    tempChartJS.canvas.parentNode.style.height = '250px';
+                    const tempChartJS = temperaturePlotter(div21, timeAxis, tempData, i+1, lat, lon)
                         
                     //  Elem2 = div for precipitation plot
                     const div3 = document.createElement('div')
