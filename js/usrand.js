@@ -1840,7 +1840,7 @@ function getRandomArbitrary(min, max) {
   return Math.random() * (max - min) + min;
 }
 
-function pointInside(point, vs) {
+function pointInsideUSA(point, vs=usaBndry) {
     // ray-casting algorithm based on
     // http://www.ecse.rpi.edu/Homepages/wrf/Research/Short_Notes/pnpoly.html
     
@@ -1860,7 +1860,7 @@ function pointInside(point, vs) {
 
 function randUSA(){
     const coordinate = [getRandomArbitrary(bndyMin[0], bndyMax[0]) ,getRandomArbitrary(bndyMin[1], bndyMax[1])]
-    if (pointInside(coordinate, usaBndry))
+    if (pointInsideUSA(coordinate))
         return coordinate
     else
         return randUSA()

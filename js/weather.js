@@ -411,10 +411,17 @@ function getSunriseSunset(lat, lon, date){
 
 //  Get weather data
 const degreeSymbol = String.fromCharCode(176)
-async function getWeather(lat, lon, reverseGeo=false) {
+async function getWeather(lat, lon, reverseGeo, updateURL=true) {
 
     if (reverseGeo) {
         reverseGeocode(lat,lon)
+    }
+    
+    if (updateURL) {
+        const newURL = new URL(window.location.href.split('?')[0])
+        newURL.searchParams.append('lat',lat.toFixed(5))
+        newURL.searchParams.append('lon',lon.toFixed(5))
+        window.history.pushState({}, '', newURL)
     }
     
     // Timezone calc
@@ -658,9 +665,24 @@ async function getWeather(lat, lon, reverseGeo=false) {
                     .text(Math.round(thisTempExtent[1]).toString() + degreeSymbol)
             }
         }
-       
     }
 }
 
 
-geocode()
+const paramString = new URLSearchParams(window.location.search)
+if (paramString.has('lat') && paramString.has('lon')) {
+    const lat = parseFloat(paramString.get("lat"))
+    const lon = parseFloat(paramString.get("lon"))
+    
+    if (!isNaN(lon) && !isNaN(lat)) {
+        if (pointInsideUSA([lat,lon]))
+            getWeather(lat, lon, true, false)
+        else {
+            geocode()
+        }
+    }
+    else
+        geocode()
+}
+else
+    geocode()

@@ -129,7 +129,7 @@ async function geocode(location=document.getElementById("textinput")) {
         const lat = parseFloat(nomJson[0].lat)
         const lon = parseFloat(nomJson[0].lon)
         console.log('Geocode success: ' + location.value + ' -> (' + lat + ', ' + lon + ')' )
-        await getWeather(lat,lon)
+        await getWeather(lat, lon, false)
     }
 }
 
