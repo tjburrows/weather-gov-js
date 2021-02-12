@@ -55,11 +55,12 @@ function temperaturePlotter(canvas, timeAxis, dataPoints, syncIndex, lat, lon) {
             },
             tooltips: {
                 mode: 'interpolate',
-//                 axis: 'x',
-//                 position: 'nearest',
                 intersect: false,
                 displayColors: true,
-                callbacks:{label:tooltipRoundValue0}
+                callbacks:{
+                    label:tooltipRoundValue0,
+                    title: (items) => items[0].xLabel.toLocaleString(luxon.DateTime.TIME_SIMPLE),
+                }
             },
             hover : {
                 animationDuration: 10,
@@ -137,7 +138,10 @@ function precipPlotter(canvas, timeAxis, dataPoints, syncIndex){
                 mode: 'interpolate',
                 intersect: false,
                 displayColors: false,
-                callbacks:{label:tooltipRoundValue}
+                callbacks:{
+                    label:tooltipRoundValue,
+                    title: (items) => items[0].xLabel.toLocaleString(luxon.DateTime.TIME_SIMPLE),
+                }
             },
             hover : {
                 animationDuration: 10,
