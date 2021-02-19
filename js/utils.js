@@ -1,21 +1,31 @@
 'use strict'
 
 //  Get current location and run weather
+const getPosition = function (options) {
+    return new Promise(function (resolve, reject) {
+        navigator.geolocation.getCurrentPosition(resolve, reject, options);
+    });
+}
+
 function getCurrentLocation() {
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(function(position) {
-            getWeather(position.coords.latitude, position.coords.longitude, true)
-        });
-    }
+    return getPosition()
+    .then(position => {
+        console.log(position)
+        return getWeather(position.coords.latitude, position.coords.longitude, true)
+    })
+    .catch(e => {
+        printError('Error getting current location.  Enter your location with a different method.')
+        throw new Error(e)
+    })
 } 
 
-async function getRandomLocation() {
+function getRandomLocation() {
     const randCoords = randUSA()
-    await getWeather(randCoords[0], randCoords[1], true)
+    return getWeather(randCoords[0], randCoords[1], true)
 }
 
 //  Clear all child divs of an id
-async function clearID(id) {
+function clearID(id) {
     const node = document.getElementById(id)
     if (node !== null) {
         while (node.hasChildNodes()) {
@@ -24,19 +34,16 @@ async function clearID(id) {
     }
 }
 
-function fetch_retry(url, options = {}, retries = 3) {
+function fetch_retry(url, options = {}, retries = 0) {
     const retryCodes = [408, 500, 502, 503, 504, 522, 524]
     return fetch(url, options)
     .then(res => {
         if (res.ok)
             return res
-        if (retries > 0 && retryCodes.includes(res.status)) {
-            return fetch_retry(url, options, retries - 1)
-        } else {
-            throw new Error(res)
+        else {
+            throw new Error('fetch response not ok')
         }
     })
-    .catch(console.error)
 }
 
 //  Convert Celcius to Fahrenheit
@@ -114,23 +121,29 @@ function generateDataInDateRange(gridProps, fields, startdate, enddate, zoneData
 
 //  Prints specified error
 function printError(message) {
-    document.getElementById("errors").appendChild(document.createTextNode(message))
+    d3.select('#errors').text(message)
 }
 
 // Get coordinate of location
-async function geocode(location=document.getElementById("textinput")) {
+function geocode(location=document.getElementById("textinput")) {
     const url = 'https://nominatim.openstreetmap.org/search?q=' + location.value + '&countrycodes=us&format=json&limit=1'
-    const response = await fetch_retry(url, {method:'GET'}, 5)
-    const nomJson =  await (async () => {return await response.json()})()
-    if (nomJson.length == 0) {
-        printError('Error: Location not identifiable from \"' + location.value + '\".  Try again.')
-    }
-    else {
-        const lat = parseFloat(nomJson[0].lat)
-        const lon = parseFloat(nomJson[0].lon)
-        console.log('Geocode success: ' + location.value + ' -> (' + lat + ', ' + lon + ')' )
-        await getWeather(lat, lon, false)
-    }
+    return fetch_retry(url, {method:'GET'}, 5)
+    .then(response => {
+        return response.json()
+    })
+    .then(nomJson => {
+        if (nomJson.length == 0) {
+            const errorString = 'Error: Location not identifiable from \"' + location.value + '\".  Try again.'
+            printError(errorString)
+            throw new Error(errorString)
+        }
+        else {
+            const lat = parseFloat(nomJson[0].lat)
+            const lon = parseFloat(nomJson[0].lon)
+            console.log('Geocode success: ' + location.value + ' -> (' + lat + ', ' + lon + ')' )
+            return getWeather(lat, lon, false)
+        }
+    })
 }
 
 function reverseGeocode(lat,lon, zoom=14, cutCountry=true) {
@@ -175,29 +188,36 @@ function toggleButtonDisable() {
     document.getElementById("textinput").toggleAttribute('readonly')
 }
 
+function button0Func() {
+    const buttonElem = document.getElementById('button0')
+    if (!buttonElem.classList.contains('disabled')) {
+        toggleButtonDisable()
+        getRandomLocation()
+        .finally(() => {
+            toggleButtonDisable()
+        })
+    }
+}
 
-async function button0Func() {
+function button1Func() {
     const buttonElem = document.getElementById('button0')
     if (!buttonElem.classList.contains('disabled')) {
         toggleButtonDisable()
-        await getRandomLocation()
-        toggleButtonDisable()
+        getCurrentLocation()
+        .finally(() => {
+           toggleButtonDisable()
+        })
     }
 }
-async function button1Func() {
+
+function button2Func() {
     const buttonElem = document.getElementById('button0')
     if (!buttonElem.classList.contains('disabled')) {
         toggleButtonDisable()
-        await getCurrentLocation()
-        toggleButtonDisable()
-    }
-}
-async function button2Func() {
-    const buttonElem = document.getElementById('button0')
-    if (!buttonElem.classList.contains('disabled')) {
-        toggleButtonDisable()
-        await geocode()
-        toggleButtonDisable()
+        geocode()
+        .finally(() => {
+            toggleButtonDisable()
+        })
     }
 }
 
