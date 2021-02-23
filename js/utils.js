@@ -17,7 +17,7 @@ function getCurrentLocation() {
         printError('Error getting current location.  Enter your location with a different method.')
         throw new Error(e)
     })
-} 
+}
 
 function getRandomLocation() {
     const randCoords = randUSA()
@@ -34,16 +34,19 @@ function clearID(id) {
     }
 }
 
-function fetch_retry(url, options = {}, retries = 0) {
+function fetch_retry(url, options = {}, retries = 3) {
     const retryCodes = [408, 500, 502, 503, 504, 522, 524]
     return fetch(url, options)
     .then(res => {
         if (res.ok)
             return res
-        else {
-            throw new Error('fetch response not ok')
+        if (retries > 0 && retryCodes.includes(res.status)) {
+            return fetch_retry(url, options, --retries)
+        } else {
+            throw new Error(res)
         }
     })
+    .catch(console.error)
 }
 
 //  Convert Celcius to Fahrenheit

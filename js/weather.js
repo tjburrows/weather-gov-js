@@ -263,13 +263,12 @@ function todayPlots(gridProps, todayObservationsJson, stationID, plotdiv, todayM
     var maxTemp
     var todayIcon
 //     todayObservationsJson.features = todayObservationsJson.features.slice(1,)
-    
-    var plotObservations = todayObservationsJson.features
+    var plotObservations = false
     let obsData = {'temperature':[], 'time':[]}
     let todayForecast
     var tempTime
-    const mostRecentObsTimeMinus1hr = luxon.DateTime.fromISO(todayObservationsJson.features[0].properties.timestamp).minus({hours:1}).setZone(zoneData.zone)
-    if (plotObservations) {
+    try {
+        plotObservations = true
         const lenObs = todayObservationsJson.features.length
         todayIcon = todayObservationsJson.features[0].properties.icon
         for (let i = 0; i < lenObs; i++) {
@@ -288,51 +287,56 @@ function todayPlots(gridProps, todayObservationsJson, stationID, plotdiv, todayM
             }
         }
     }
-    todayForecast = generateDataInDateRange(gridProps, todayFields, firstTime, todayMidnight, zoneData)
-    
-    // Find minimum and maximum temperature
-    minTemp = Math.min(...todayForecast['temperature'].data)
-    maxTemp = Math.max(...todayForecast['temperature'].data)
-    if (plotObservations) {
-        const obsMin = Math.min(...obsData.temperature)
-        const obsMax = Math.max(...obsData.temperature)
-        minTemp = (obsMin < minTemp) ? obsMin : minTemp
-        maxTemp = (obsMax > maxTemp) ? obsMax : maxTemp
+    catch {
+        plotObservations = false
     }
+    finally {
+        todayForecast = generateDataInDateRange(gridProps, todayFields, firstTime, todayMidnight, zoneData)
     
-    const todayDiv = document.createElement('div')
-    todayDiv.classList.add('canvasParent')
-    const todayCanvas1 = document.createElement('canvas')
-    todayDiv.appendChild(todayCanvas1)
-    const elem = plotdiv.appendChild(todayDiv)
-    const timeRange = [lastMidnight.plus({minutes:zoneData.offset}), todayMidnight.plus({minutes:zoneData.offset})]
-    const timeAxis = chartJsTimeAxis(timeRange)
-    const tempChartJS = temperaturePlotter(todayCanvas1, timeAxis, todayForecast, 0, lat, lon)
-    if (plotObservations) {
-        tempChartJS.data.datasets.push({
-            label: 'Observed',
-            data: arrayToChartJSData(obsData.time, obsData.temperature),
-            fill: false,
-            cubicInterpolationMode: 'monotone',
-            borderColor: '#000',
-            backgroundColor: '#000',
-            borderDash: [2,2],
-            pointRadius: 0,
-            interpolate: true,
-        })
-        tempChartJS.options.legend.display = true
-    }
+        // Find minimum and maximum temperature
+        minTemp = Math.min(...todayForecast['temperature'].data)
+        maxTemp = Math.max(...todayForecast['temperature'].data)
+        if (plotObservations) {
+            const obsMin = Math.min(...obsData.temperature)
+            const obsMax = Math.max(...obsData.temperature)
+            minTemp = (obsMin < minTemp) ? obsMin : minTemp
+            maxTemp = (obsMax > maxTemp) ? obsMax : maxTemp
+        }
         
-    // Today Precipitation plot
-    const todayDiv2 = document.createElement('div')
-    todayDiv2.classList.add('canvasParent')
-    const todayCanvas2 = document.createElement('canvas')
-    todayDiv2.appendChild(todayCanvas2)
-    const elem2 = plotdiv.appendChild(todayDiv2)
-    const todayPrecipForecast = generateDataInDateRange(gridProps, ['quantitativePrecipitation', 'probabilityOfPrecipitation', 'snowfallAmount'], firstTime, todayMidnight, zoneData)
-    const todayPrecipChart = precipPlotter(todayCanvas2, timeAxis, todayPrecipForecast, 0)
-    alignTwoCharts(tempChartJS, todayPrecipChart)
-    return {'minTemp':minTemp, 'maxTemp':maxTemp, 'icon':todayIcon}
+        const todayDiv = document.createElement('div')
+        todayDiv.classList.add('canvasParent')
+        const todayCanvas1 = document.createElement('canvas')
+        todayDiv.appendChild(todayCanvas1)
+        const elem = plotdiv.appendChild(todayDiv)
+        const timeRange = [lastMidnight.plus({minutes:zoneData.offset}), todayMidnight.plus({minutes:zoneData.offset})]
+        const timeAxis = chartJsTimeAxis(timeRange)
+        const tempChartJS = temperaturePlotter(todayCanvas1, timeAxis, todayForecast, 0, lat, lon)
+        if (plotObservations) {
+            tempChartJS.data.datasets.push({
+                label: 'Observed',
+                data: arrayToChartJSData(obsData.time, obsData.temperature),
+                fill: false,
+                cubicInterpolationMode: 'monotone',
+                borderColor: '#000',
+                backgroundColor: '#000',
+                borderDash: [2,2],
+                pointRadius: 0,
+                interpolate: true,
+            })
+            tempChartJS.options.legend.display = true
+        }
+            
+        // Today Precipitation plot
+        const todayDiv2 = document.createElement('div')
+        todayDiv2.classList.add('canvasParent')
+        const todayCanvas2 = document.createElement('canvas')
+        todayDiv2.appendChild(todayCanvas2)
+        const elem2 = plotdiv.appendChild(todayDiv2)
+        const todayPrecipForecast = generateDataInDateRange(gridProps, ['quantitativePrecipitation', 'probabilityOfPrecipitation', 'snowfallAmount'], firstTime, todayMidnight, zoneData)
+        const todayPrecipChart = precipPlotter(todayCanvas2, timeAxis, todayPrecipForecast, 0)
+        alignTwoCharts(tempChartJS, todayPrecipChart)
+        return {'minTemp':minTemp, 'maxTemp':maxTemp, 'icon':todayIcon}
+    }
 }
 
 function drawLatestObservation(stationsJson) {
@@ -344,7 +348,7 @@ function drawLatestObservation(stationsJson) {
     const stationID = station.properties.stationIdentifier
     printError('Fetching data ' + totalFetched++ + '/6...')
     fetch_retry('https://api.weather.gov/stations/' + stationID + '/observations/latest?require_qc=true', fetchOptions)
-    .then(response_ob => {return response_ob.json()})
+    .then(response => {return response.json()})
     .then(obJson => {
         console.log('observation:', obJson)
         var currentTemp = obJson.properties.temperature.value
@@ -376,76 +380,254 @@ function drawLatestObservation(stationsJson) {
 }
 
 
-function drawMap(lat, lon, localTime) {
+function drawMap(lat, lon) {
     
     if (!mapDrawn) {
         mapDrawn = true
-        map = L.map("map1",{doubleClickZoom:false, scrollWheelZoom:false, dragging:!L.Browser.mobile}).setView([lat,lon], 5);
-        const osmAttribution ='Map data &copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors';
-        const leafletRadarAttribution ='<a href="https://github.com/rwev/leaflet-radar">Radar</a>';
+        map = L.map("map1",{doubleClickZoom:false, scrollWheelZoom:false, dragging:!L.Browser.mobile}).setView([lat,lon], 6);
+        const osmAttribution ='Map data &copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
+        const leafletRadarAttribution ='<a href="https://github.com/rwev/leaflet-radar">Radar</a>'
         L.tileLayer(
                 "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
                 {attribution: [osmAttribution, leafletRadarAttribution].join(" | "), dragging:!L.Browser.mobile}
-        ).addTo(map);
-        mark = L.marker([lat,lon])
-        mark.addTo(map);
-        const radar = L.control.radar().addTo(map);
+        ).addTo(map)
         
+        mark = L.marker([lat,lon], {draggable:true, autoPan:true})
+            .on('dragend', function(data) {
+                map.panTo([data.target._latlng.lat, data.target._latlng.lng]);
+                getWeather(data.target._latlng.lat, data.target._latlng.lng, true)
+            })
+        mark.addTo(map)
         
-//         var snowDepth = L.tileLayer.wms('http://idpgis.ncep.noaa.gov/arcgis/services/NWS_Observations/NOHRSC_Snow_Analysis/MapServer/WmsServer?', {
-//             layers: '5',
-//             format: 'image/png8',
-//             transparent: true,
-//             opacity: 0.75,
-//         }).addTo(map);
+        buttonRadar()
         
-//         var reflectivity = L.tileLayer.wms('http://idpgis.ncep.noaa.gov/arcgis/services/NWS_Observations/radar_base_reflectivity/MapServer/WmsServer?', {
-//             layers: '1',
-//             format: 'image/png8',
-//             transparent: true,
-//             opacity: 0.75,
-//         }).addTo(map);
-//         
-//         var temp = L.tileLayer.wms('https://new.nowcoast.noaa.gov/arcgis/services/nowcoast/forecast_meteoceanhydro_sfc_ndfd_time/MapServer/WmsServer?', {
-//             layers: '25',
-//             format: 'image/png',
-//             transparent: true,
-//             opacity: 0.5,
-//             version: '1.3.0',
-//         }).addTo(map);
-        
-//         var snowFall6Hr = L.tileLayer.wms('https://new.nowcoast.noaa.gov/arcgis/services/nowcoast/forecast_meteoceanhydro_sfc_ndfd_time/MapServer/WmsServer?', {
-//             layers: '37',
-//             format: 'image/png',
-//             transparent: true,
-//             opacity: 0.5,
-//             version: '1.3.0',
-//         }).addTo(map);
-        
-//         var windVelocity = L.tileLayer.wms('https://new.nowcoast.noaa.gov/arcgis/services/nowcoast/forecast_meteoceanhydro_sfc_ndfd_time/MapServer/WmsServer?', {
-//             layers: 53,
-//             format: 'image/png32',
-//             transparent: true,
-//             version: '1.3.0',
-//             tileSize: 256,
-//             time:localTime.toISO(),
-//         }).addTo(map);
-                
-        
-        
-        map.on('dblclick', function(e) {
-            getWeather(e.latlng.lat, e.latlng.lng, true)
-        }).on('contextmenu', function(e) {
-            getWeather(e.latlng.lat, e.latlng.lng, true)
-        })
+        map.on('dblclick', doubleClick).on('contextmenu', doubleClick)
         map.options.dragging = !L.Browser.mobile
     }
+    
     else {
-        map.removeLayer(mark)
-        map.panTo([lat,lon]);
-        mark = L.marker([lat,lon]).addTo(map);
+        mark.setLatLng([lat, lon])
+        map.panTo([lat, lon]);
     }
 }
+
+function doubleClick(e) {
+    for (let i in e.sourceTarget._layers) {
+        if (e.sourceTarget._layers[i]._latlng) {
+            e.sourceTarget._layers[i].setLatLng([e.latlng.lat, e.latlng.lng])
+            break
+        }
+    }
+    e.sourceTarget.panTo([e.latlng.lat, e.latlng.lng])
+    getWeather(e.latlng.lat, e.latlng.lng, true)
+}
+function removeMapLayers(){
+    if (radar) {
+        map.removeControl(radar)
+        radar.removeLayers()
+        radar = null
+    }
+    var thisLayer
+    for (let key in map._layers) {
+        thisLayer = map._layers[key]
+        if ('_url' in thisLayer) {
+            if (!thisLayer._url.includes('openstreetmap')) {
+                thisLayer.remove()
+            }
+        }
+    }
+    clearID('legend')
+}
+
+function buttonRadar(){
+    removeMapLayers()
+    radar = L.control.radar().addTo(map)
+}
+
+function buttonTemperature(){
+    
+    const legend = {
+        min: -50,
+        data: [
+        [[255,196,243], -25],
+        [[249,171,234], -20],
+        [[246,156,228], -15],
+        [[238,135,217], -10],
+        [[227,118,205], -8],
+        [[227,118,218], -6],
+        [[229,98,218], -4],
+        [[228,90,223], -2],
+        [[218,75,213], 0],
+        [[206,58,201], 2],
+        [[202,42,200], 4],
+        [[197,11,195], 6],
+        [[182,11,197], 8],
+        [[164,11,197], 10],
+        [[151,11,197], 12],
+        [[138,11,197], 14],
+        [[119,11,197], 16],
+        [[107,11,197], 18],
+        [[93,11,197], 20],
+        [[73,11,197], 22],
+        [[53,11,197], 24],
+        [[11,11,197], 26],
+        [[11,27,197], 28],
+        [[11,49,195], 30],
+        [[11,93,195], 32],
+        [[11,111,195], 34],
+        [[11,130,195], 36],
+        [[11,139,209], 38],
+        [[11,165,216], 40],
+        [[0,189,231], 42],
+        [[0,198,243], 44],
+        [[0,206,236], 46],
+        [[0,218,205], 48],
+        [[0,220,177], 50],
+        [[0,218,145], 52],
+        [[0,212,109], 54],
+        [[0,206,77], 56],
+        [[0,200,49], 58],
+        [[11,192,11], 60],
+        [[46,196,0], 62],
+        [[77,202,0], 64],
+        [[119,208,0], 66],
+        [[136,200,0], 68],
+        [[174,216,0], 70],
+        [[207,222,11], 72],
+        [[220,225,11], 74],
+        [[233,229,0], 76],
+        [[241,236,0], 78],
+        [[252,248,0], 80],
+        [[255,238,0], 82],
+        [[255,227,0], 84],
+        [[255,215,0], 86],
+        [[255,197,0], 88],
+        [[255,185,0], 90],
+        [[254,167,0], 92],
+        [[252,141,0], 94],
+        [[249,100,0], 96],
+        [[243,71,0], 98],
+        [[232,53,0], 100],
+        [[217,42,0], 102],
+        [[200,27,0], 104],
+        [[187,20,0], 106],
+        [[178,11,0], 108],
+        [[167,11,0], 110],
+        [[150,11,0], 115],
+        [[115,11,0], 120],
+        [[92,11.3,0], 125],
+        [[73,11,0], 160],
+    ]}
+    
+    legend.labels = [legend.min + degreeSymbol]
+    for (let i = 0; i < legend.data.length; i++)
+        legend.labels.push(legend.data[i][1] + degreeSymbol)
+    
+    removeMapLayers()
+    L.tileLayer.wms('https://new.nowcoast.noaa.gov/arcgis/services/nowcoast/forecast_meteoceanhydro_sfc_ndfd_time/MapServer/WmsServer?', {
+        layers: '25',
+        format: 'image/png',
+        transparent: true,
+        opacity: 0.75,
+        version: '1.3.0',
+    }).addTo(map);
+    drawLegend(legend)
+}
+
+function drawLegend(legendObj) {
+    const w = Math.min(550, map._size.x)
+    const h = 50
+    
+    const barw = w - 30
+    const barh = 30
+    const marginLeft = 0.5 * (w - barw)
+    
+    const n = legendObj.data.length
+    const wBlock = barw / n
+    
+    const legendDiv = document.getElementById('legend')
+    legendDiv.style.height = h
+    legendDiv.style.width = w
+    
+    const legendSVG = d3.select(legendDiv)
+        .append('svg')
+        .attr('width', w)
+        .attr('height', h)
+        .attr('x', 0)
+        .attr('y', 0)
+        
+    legendSVG.selectAll('rect')
+        .data(legendObj.data)
+        .enter()
+        .append('rect')
+        .attr('width', wBlock)
+        .attr('x', (d,i) => {return marginLeft + wBlock * i})
+        .attr('y', 0)
+        .attr('height', barh)
+        .attr('fill', d => {return 'rgb(' +  d[0][0] + ', ' + d[0][1] + ', ' + d[0][2] +  ')'})
+        .attr('fill-opacity', 0.75)
+    
+    const wBtwLabels = 30
+    legendSVG.selectAll('text')
+        .data(legendObj.labels)
+        .enter()
+        .append('text')
+        .attr('x', (d,i) => {return marginLeft + wBlock * (i)})
+        .attr('y', barh)
+        .attr("font-size", 12)
+        .attr("text-anchor", "middle")
+        .attr('dominant-baseline', 'hanging')
+        .text((d,i) => {
+            if (i % (Math.ceil(wBtwLabels / wBlock)) == 0)
+                return d
+            else
+                return ''
+        })
+}
+
+function inches2ftin(num) {
+    const sign = num < 0
+    const feet = Math.floor(num / 12)
+    const inch = num - (12 * feet)
+    if (feet > 0)
+        return feet + '\' ' + inch + '\"'
+    else
+        return inch + '\"'
+}
+
+function buttonSnowDepth(){
+    
+    const legend = {
+        'min': 0,
+        'data':[
+        [[255,255,255],1],
+        [[171,193,191],2],
+        [[103,193,196],3.9],
+        [[100,169,203],9.8],
+        [[79,121,200],20],
+        [[61,64,194],39],
+        [[87,33,195],59],
+        [[125,0,187],98],
+        [[180,0,177],197],
+        [[169,20,119],295],
+        [[153,42,79],394],
+//         [[139,69,69],787],
+    ]}
+    
+    legend.labels = [inches2ftin(legend.min)]
+    for (let i = 0; i < legend.data.length; i++)
+        legend.labels.push(inches2ftin(legend.data[i][1]))
+    
+    removeMapLayers()
+    L.tileLayer.wms('http://idpgis.ncep.noaa.gov/arcgis/services/NWS_Observations/NOHRSC_Snow_Analysis/MapServer/WmsServer?', {
+        layers: '5',
+        format: 'image/png8',
+        transparent: true,
+        opacity: 0.75,
+    }).addTo(map);
+    drawLegend(legend) 
+}
+
 
 function getSunriseSunset(lat, lon, date){
     const thisJD = getJD(date.year, date.month, date.day)
@@ -483,18 +665,18 @@ function getWeather(lat, lon, reverseGeo, updateURL=true) {
     clearID('conditions')
     
     //  Create map
-    drawMap(lat, lon, localTime)
+    drawMap(lat, lon)
     printError('Fetching data ' + totalFetched++ + '/6...')
     
     return fetch_retry('https://api.weather.gov/points/' + lat + ',' + lon, fetchOptions)
-    .then(fetchPoints => {return fetchPoints.json()})
+    .then(response => {return response.json()})
     .then(pointsJson => {
         const fetch_points = fetch_retry(pointsJson.properties.observationStations, fetchOptions)
         const fetch_forecast = fetch_retry(pointsJson.properties.forecast, fetchOptions)
         const fetch_grid = fetch_retry(pointsJson.properties.forecastGridData, fetchOptions)
         printError('Fetching data ' + totalFetched++ + '/6...')
         return fetch_points
-        .then(response_points => {return response_points.json()})
+        .then(response => {return response.json()})
         .then(stationsJson => {
             drawLatestObservation(stationsJson)
             const stationID = stationsJson.features[0].properties.stationIdentifier
@@ -505,7 +687,7 @@ function getWeather(lat, lon, reverseGeo, updateURL=true) {
             
             printError('Fetching data ' + totalFetched++ + '/6...')
             return fetch_forecast
-            .then(response_forecast => {return response_forecast.json()})
+            .then(response => {return response.json()})
             .then(forecastJson => {
                 console.log("daydata:", forecastJson)
                 const dayProps = forecastJson.properties
@@ -532,7 +714,7 @@ function getWeather(lat, lon, reverseGeo, updateURL=true) {
                 printError('Fetching data ' + totalFetched++ + '/6...')
                 
                 return fetch_grid
-                .then(response_grid => {return response_grid.json()})
+                .then(response => {return response.json()})
                 .then(gridJson => {
                     
                     console.log('grid:', gridJson)
@@ -549,7 +731,7 @@ function getWeather(lat, lon, reverseGeo, updateURL=true) {
                     
                     printError('Fetching data ' + totalFetched++ + '/6...')
                     return fetch_obs
-                    .then(response_obs => { return response_obs.json()})
+                    .then(response => {return response.json()})
                     .then(todayObservationsJson => {
                         console.log("todays observations:", todayObservationsJson)
                         var currentDay, todayData, xExtent
@@ -714,24 +896,8 @@ function getWeather(lat, lon, reverseGeo, updateURL=true) {
                                 .text(Math.round(thisTempExtent[1]).toString() + degreeSymbol)
                         }
                     })
-                    .catch(e => {
-                        printError('Error 5 occurred fetching data.  Try another location or try later.  There might be a problem with api.weather.gov')
-                        throw new Error(e)
-                    })
-                })
-                .catch(e => {
-                    printError('Error 4 occurred fetching data.  Try another location or try later.  There might be a problem with api.weather.gov')
-                    throw new Error(e)
                 })
             })
-            .catch(e => {
-                printError('Error 3 occurred fetching data.  Try another location or try later.  There might be a problem with api.weather.gov')
-                throw new Error(e)
-            })
-        })
-        .catch(e => {
-            printError('Error 2 occurred fetching data.  Try another location or try later.  There might be a problem with api.weather.gov')
-            throw new Error(e)
         })
     })
     .then(() => {
@@ -739,13 +905,13 @@ function getWeather(lat, lon, reverseGeo, updateURL=true) {
             d3.select('#errors').text('')
     })
     .catch(e => {
-        printError('Error 1 occurred.  Try another location or try later.  There might be a problem with api.weather.gov')
+        printError('Error occurred.  Try refreshing.  There might be a problem with api.weather.gov')
         throw new Error(e)
     })
 }
 
 var totalFetched = 1
-var map
+var map, radar
 const paramString = new URLSearchParams(window.location.search)
 if (paramString.has('lat') && paramString.has('lon')) {
     const lat = parseFloat(paramString.get("lat"))
