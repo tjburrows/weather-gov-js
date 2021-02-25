@@ -128,30 +128,76 @@ function printError(message) {
 }
 
 // Get coordinate of location
-function geocode(location=document.getElementById("textinput")) {
-    const url = 'https://nominatim.openstreetmap.org/search?q=' + location.value + '&countrycodes=us&format=json&limit=1'
-    return fetch_retry(url, {method:'GET'}, 5)
-    .then(response => {
-        return response.json()
-    })
+function geocodeNominatim() {
+    const searchText = document.getElementById("textinput").value
+    const nominatimURL = 'https://nominatim.openstreetmap.org/search?q=' + searchText + '&countrycodes=us&format=json&limit=1'
+    
+    return fetch_retry(nominatimURL)
+    .then(response => {return response.json()})
     .then(nomJson => {
         if (nomJson.length == 0) {
-            const errorString = 'Error: Location not identifiable from \"' + location.value + '\".  Try again.'
+            const errorString = 'Error: Location not identifiable from \"' + searchText + '\".  Try again.'
             printError(errorString)
             throw new Error(errorString)
         }
         else {
             const lat = parseFloat(nomJson[0].lat)
             const lon = parseFloat(nomJson[0].lon)
-            console.log('Geocode success: ' + location.value + ' -> (' + lat + ', ' + lon + ')' )
+            console.log('Nominatim geocode success: ' + searchText + ' -> (' + lat + ', ' + lon + ')' )
             return getWeather(lat, lon, false)
         }
     })
 }
 
+function geocodeArcgis(){
+    const searchText = document.getElementById("textinput").value
+    const arcgisURL = 'https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?'
+                            + 'f=json'
+                            + '&SingleLine=' + searchText
+                            + '&sourceCountry=us'
+                            + '&outFields=X,Y'
+    
+    return fetch_retry(arcgisURL)
+    .then(response => {return response.json()})
+    .then(json => {
+        const lat = parseFloat(json.candidates[0].location.y)
+        const lon = parseFloat(json.candidates[0].location.x)
+        console.log('ArcGIS geocode success: ' + searchText + ' -> (' + lat + ', ' + lon + ')' )
+        return getWeather(lat, lon, false)
+    })
+     .catch((e) => {
+        console.log(e)
+        return geocodeNominatim()
+    })
+}
+
+function geocodeGeoapify() {
+    const searchText = document.getElementById("textinput").value
+    const geoapifyKey = 'b2c8246b8b8545b9bc1e814d5c90486a' // Get your own at geoapify.com
+    const geoapifyURL = 'https://api.geoapify.com/v1/geocode/search?text=' + searchText 
+                            + '&lang=en' + '&limit=1' + '&type=city' + '&filter=countrycode:us' + '&apiKey=' + geoapifyKey
+    
+    return fetch_retry(geoapifyURL)
+    .then(response => {return response.json()})
+    .then(json => {
+        const lat = parseFloat(json.features[0].geometry.coordinates[1])
+        const lon = parseFloat(json.features[0].geometry.coordinates[0])
+        console.log('Geoapify geocode success: ' + searchText + ' -> (' + lat + ', ' + lon + ')' )
+        return getWeather(lat, lon, false)
+    })
+    .catch((e) => {
+        console.log(e)
+        return geocodeNominatim()
+    })
+}
+
+function geocode() {
+    return geocodeArcgis()
+}
+
 function reverseGeocode(lat,lon, zoom=14, cutCountry=true) {
     const url = 'https://nominatim.openstreetmap.org/reverse?lat=' + lat + '&lon=' + lon + '&format=json&zoom=14'
-    fetch_retry(url, {method:'GET'}, 5)
+    fetch_retry(url)
     .then(function(response) { return response.json(); })
     .then(function(reverseJson) {
         clearID('errors')
