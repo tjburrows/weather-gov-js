@@ -14,8 +14,20 @@ function getCurrentLocation() {
         return getWeather(position.coords.latitude, position.coords.longitude, true)
     })
     .catch(e => {
-        printError('Error getting current location.  Enter your location with a different method.')
-        throw new Error(e)
+        return fetch_retry('http://ip-api.com/json/?fields=status,message,lat,lon,timezone')
+        .then(response => {return response.json()})
+        .then(json => {
+            if (json.status != 'success') {
+                console.log(json)
+                throw new Error('Failed getting ip location')
+            }
+            else
+                return getWeather(json.lat, json.lon, true)
+        })
+        .catch(e => {
+            printError('Error getting current location.  Enter your location with a different method.')
+            throw new Error(e)
+        })
     })
 }
 
