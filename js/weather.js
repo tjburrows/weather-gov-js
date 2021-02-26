@@ -641,6 +641,11 @@ function getSunriseSunset(lat, lon, date){
 //  Get weather data
 const degreeSymbol = String.fromCharCode(176)
 function getWeather(lat, lon, reverseGeo, updateURL=true) {
+    
+    if (!pointInsideUSA([lat,lon])) {
+        printError('Error: Location must be in continental US.')
+        return
+    }
     totalFetched = 1
 
     if (reverseGeo) {
