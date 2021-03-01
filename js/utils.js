@@ -10,19 +10,17 @@ const getPosition = function (options) {
 function getCurrentLocation() {
     return getPosition()
     .then(position => {
-        console.log(position)
-        return getWeather(position.coords.latitude, position.coords.longitude, true)
+        const lat = position.coords.latitude
+        const lon = position.coords.longitude
+        console.log('Successful Geolocation: (' + lat + ', ' + lon + ')' )
+        return getWeather(lat, lon, true)
     })
     .catch(e => {
-        return fetch_retry('http://ip-api.com/json/?fields=status,message,lat,lon,timezone')
+        return fetch_retry('https://ipapi.co/json/')
         .then(response => {return response.json()})
         .then(json => {
-            if (json.status != 'success') {
-                console.log(json)
-                throw new Error('Failed getting ip location')
-            }
-            else
-                return getWeather(json.lat, json.lon, true)
+            console.log('Successful IP Location: ' + json.ip + ' -> (' + json.latitude + ', ' + json.longitude + ')' )
+            return getWeather(json.latitude, json.longitude, true)
         })
         .catch(e => {
             printError('Error getting current location.  Enter your location with a different method.')
