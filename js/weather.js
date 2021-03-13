@@ -286,13 +286,13 @@ function todayPlots(gridProps, todayObservationsJson, stationID, plotdiv, todayM
                 }
             }
         }
+        
     }
     catch {
         plotObservations = false
     }
     finally {
-        todayForecast = generateDataInDateRange(gridProps, todayFields, firstTime, todayMidnight, zoneData)
-    
+        todayForecast = generateDataInDateRange(gridProps, todayFields, lastMidnight, todayMidnight, zoneData)
         // Find minimum and maximum temperature
         minTemp = Math.min(...todayForecast['temperature'].data)
         maxTemp = Math.max(...todayForecast['temperature'].data)
@@ -332,7 +332,7 @@ function todayPlots(gridProps, todayObservationsJson, stationID, plotdiv, todayM
         const todayCanvas2 = document.createElement('canvas')
         todayDiv2.appendChild(todayCanvas2)
         const elem2 = plotdiv.appendChild(todayDiv2)
-        const todayPrecipForecast = generateDataInDateRange(gridProps, ['quantitativePrecipitation', 'probabilityOfPrecipitation', 'snowfallAmount'], firstTime, todayMidnight, zoneData)
+        const todayPrecipForecast = generateDataInDateRange(gridProps, ['quantitativePrecipitation', 'probabilityOfPrecipitation', 'snowfallAmount'], lastMidnight, todayMidnight, zoneData)
         const todayPrecipChart = precipPlotter(todayCanvas2, timeAxis, todayPrecipForecast, 0)
         alignTwoCharts(tempChartJS, todayPrecipChart)
         return {'minTemp':minTemp, 'maxTemp':maxTemp, 'icon':todayIcon}
