@@ -159,13 +159,19 @@ function geocodeNominatim() {
     })
 }
 
-function geocodeArcgis(){
+function geocodeArcgis(magic=null){
     const searchText = document.getElementById("textinput").value
-    const arcgisURL = 'https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?'
+    var arcgisURL = 'https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?'
                             + 'f=json'
                             + '&SingleLine=' + searchText
-                            + '&sourceCountry=us'
                             + '&outFields=X,Y'
+
+    if (magic) {
+        arcgisURL += '&magicKey=' + magic
+    }
+    else {
+        arcgisURL += '&sourceCountry=us'
+    }
     
     return fetch_retry(arcgisURL)
     .then(response => {return response.json()})

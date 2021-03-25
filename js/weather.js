@@ -9,13 +9,13 @@ var mapDrawn = false
 var mark
 
 //  Allow pressing enter to submit
-document.getElementById("textinput").addEventListener("keyup", function(event) {
-    if (event.keyCode === 13) {
-        toggleButtonDisable()
-        event.preventDefault()
-        geocode().then(() => {toggleButtonDisable()})
-    }
-})
+// document.getElementById("textinput").addEventListener("keyup", function(event) {
+//     if (event.keyCode === 13) {
+//         toggleButtonDisable()
+//         event.preventDefault()
+//         geocode().then(() => {toggleButtonDisable()})
+//     }
+// })
 
 
 function temperaturePlotter(canvas, timeAxis, dataPoints, syncIndex, lat, lon) {
@@ -642,10 +642,10 @@ function getSunriseSunset(lat, lon, date){
 const degreeSymbol = String.fromCharCode(176)
 function getWeather(lat, lon, reverseGeo, updateURL=true) {
     
-    if (!pointInsideUSA([lat,lon])) {
-        printError('Error: Location must be in continental US.')
-        return
-    }
+//     if (!pointInsideUSA([lat,lon])) {
+//         printError('Error: Location must be in continental US.')
+//         return
+//     }
     totalFetched = 1
 
     if (reverseGeo) {
@@ -915,6 +915,18 @@ function getWeather(lat, lon, reverseGeo, updateURL=true) {
     })
 }
 
+addressAutocomplete(document.getElementById("autocomplete-container"), (data) => {
+    if (data)
+        geocodeArcgis(data.magic)
+}, {
+    placeholder: "Enter an address here",
+});
+
+function defaultAction() {
+    document.getElementById('textinput').value = 'Somerville, MA'
+    geocode()
+}
+
 var totalFetched = 1
 var map, radar
 const paramString = new URLSearchParams(window.location.search)
@@ -925,12 +937,11 @@ if (paramString.has('lat') && paramString.has('lon')) {
     if (!isNaN(lon) && !isNaN(lat)) {
         if (pointInsideUSA([lat,lon]))
             getWeather(lat, lon, true, false)
-        else {
-            geocode()
-        }
+        else
+            defaultAction()
     }
     else
-        geocode()
+        defaultAction()
 }
 else
-    geocode()
+    defaultAction()
