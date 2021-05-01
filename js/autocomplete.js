@@ -1,3 +1,5 @@
+'use strict'
+
 /* 
 	The addressAutocomplete takes as parameters:
   - a container element (div)
@@ -137,10 +139,14 @@ function addressAutocomplete(containerElement, callback, options) {
       } else if (e.keyCode == 13) {
         /* If the ENTER key is pressed and value as selected, close the list*/
         e.preventDefault();
-        setActive(itemElements, focusedItemIndex);
-        callback(currentItems[focusedItemIndex]);
+        closeDropDownList();
         if (focusedItemIndex > -1) {
-          closeDropDownList();
+          setActive(itemElements, focusedItemIndex);
+          callback(currentItems[focusedItemIndex]);
+          
+        }
+        else {
+            geocode()
         }
       }
     } else {

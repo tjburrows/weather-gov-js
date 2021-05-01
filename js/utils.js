@@ -164,7 +164,7 @@ function geocodeArcgis(magic=null){
     var arcgisURL = 'https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?'
                             + 'f=json'
                             + '&SingleLine=' + searchText
-                            + '&outFields=X,Y'
+                            + '&outFields=X,Y,address'
 
     if (magic) {
         arcgisURL += '&magicKey=' + magic
@@ -178,6 +178,7 @@ function geocodeArcgis(magic=null){
     .then(json => {
         const lat = parseFloat(json.candidates[0].location.y)
         const lon = parseFloat(json.candidates[0].location.x)
+        document.getElementById('textinput').value = json.candidates[0].address
         console.log('ArcGIS geocode success: ' + searchText + ' -> (' + lat + ', ' + lon + ')' )
         return getWeather(lat, lon, false)
     })

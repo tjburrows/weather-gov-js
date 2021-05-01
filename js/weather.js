@@ -8,15 +8,6 @@ const fetchOptions = {
 var mapDrawn = false
 var mark
 
-//  Allow pressing enter to submit
-// document.getElementById("textinput").addEventListener("keyup", function(event) {
-//     if (event.keyCode === 13) {
-//         toggleButtonDisable()
-//         event.preventDefault()
-//         geocode().then(() => {toggleButtonDisable()})
-//     }
-// })
-
 
 function temperaturePlotter(canvas, timeAxis, dataPoints, syncIndex, lat, lon) {
     const sunRiseSet = getSunriseSunset(lat, lon, timeAxis[0].ticks.min)
@@ -642,10 +633,6 @@ function getSunriseSunset(lat, lon, date){
 const degreeSymbol = String.fromCharCode(176)
 function getWeather(lat, lon, reverseGeo, updateURL=true) {
     
-//     if (!pointInsideUSA([lat,lon])) {
-//         printError('Error: Location must be in continental US.')
-//         return
-//     }
     totalFetched = 1
 
     if (reverseGeo) {
@@ -792,14 +779,6 @@ function getWeather(lat, lon, reverseGeo, updateURL=true) {
                                     tempData[field].data = plotData[field].data.slice((i-1)*24, i*24+1)
                                     tempData[field].time = plotData[field].time.slice((i-1)*24, i*24+1)
                                 }) 
-                                
-                                //  add day description (not working yet)
-                    //                     const div1 = document.createElement('div')
-                    //                     const text = document.createTextNode(currentDay.detailedForecast)
-                    //                     div1.appendChild(text)
-                    //                     div1.style.width = "90%"
-                    //                     div1.style.display = "inline-block"
-                    //                     content.appendChild(div1)
                                 
                                 //  Elem = div for temperature plot
                                 const div2 = document.createElement('div')
