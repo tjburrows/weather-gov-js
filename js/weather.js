@@ -610,7 +610,7 @@ function buttonSnowDepth(){
         legend.labels.push(inches2ftin(legend.data[i][1]))
     
     removeMapLayers()
-    L.tileLayer.wms('http://idpgis.ncep.noaa.gov/arcgis/services/NWS_Observations/NOHRSC_Snow_Analysis/MapServer/WmsServer?', {
+    L.tileLayer.wms('https://idpgis.ncep.noaa.gov/arcgis/services/NWS_Observations/NOHRSC_Snow_Analysis/MapServer/WmsServer?', {
         layers: '5',
         format: 'image/png8',
         transparent: true,

@@ -45,6 +45,10 @@ function clearID(id) {
 }
 
 function fetch_retry(url, options = {}, retries = 3) {
+    if (url.startsWith("http://")) {
+        url = "https" + url.slice(4)
+    }
+
     const retryCodes = [408, 500, 502, 503, 504, 522, 524]
     return fetch(url, options)
     .then(res => {
@@ -103,12 +107,12 @@ function generateDataInDateRange(gridProps, fields, startdate, enddate, zoneData
                                 entryStruct.data.push(thisGridField.values[i].value /  gridInterval.length('hours'))
                             else
                                 entryStruct.data.push(thisGridField.values[i].value)
-                                
+
                         }
                     }
                 }
             }
-            
+
             if (entryStruct.unit.includes('degC')) {
                 for (let i = 0; i < entryStruct.data.length; i++) {
                     entryStruct.data[i] = c2f(entryStruct.data[i])
@@ -141,7 +145,7 @@ function printError(message) {
 function geocodeNominatim() {
     const searchText = document.getElementById("textinput").value
     const nominatimURL = 'https://nominatim.openstreetmap.org/search?q=' + searchText + '&countrycodes=us&format=json&limit=1'
-    
+
     return fetch_retry(nominatimURL)
     .then(response => {return response.json()})
     .then(nomJson => {
@@ -172,7 +176,7 @@ function geocodeArcgis(magic=null){
     else {
         arcgisURL += '&sourceCountry=us'
     }
-    
+
     return fetch_retry(arcgisURL)
     .then(response => {return response.json()})
     .then(json => {
@@ -191,9 +195,9 @@ function geocodeArcgis(magic=null){
 function geocodeGeoapify() {
     const searchText = document.getElementById("textinput").value
     const geoapifyKey = 'b2c8246b8b8545b9bc1e814d5c90486a' // Get your own at geoapify.com
-    const geoapifyURL = 'https://api.geoapify.com/v1/geocode/search?text=' + searchText 
+    const geoapifyURL = 'https://api.geoapify.com/v1/geocode/search?text=' + searchText
                             + '&lang=en' + '&limit=1' + '&type=city' + '&filter=countrycode:us' + '&apiKey=' + geoapifyKey
-    
+
     return fetch_retry(geoapifyURL)
     .then(response => {return response.json()})
     .then(json => {
@@ -219,7 +223,7 @@ function reverseGeocode(lat,lon, zoom=14, cutCountry=true) {
     .then(function(reverseJson) {
         clearID('errors')
         if (reverseJson.error) {
-            document.getElementById("textinput").value= lat.toFixed(5) + ', ' + lon.toFixed(5) 
+            document.getElementById("textinput").value= lat.toFixed(5) + ', ' + lon.toFixed(5)
         }
         else {
             if (cutCountry) {
@@ -294,7 +298,7 @@ function alignTwoCharts(chartA, chartB, threshold = 0.001) {
     while (Math.abs(leftDiff) > threshold && Math.abs(widthDiff) > threshold ) {
         leftDiff = chartA.chartArea.left - chartB.chartArea.left
         widthDiff = (chartA.chartArea.right - chartA.chartArea.left) - (chartB.chartArea.right - chartB.chartArea.left)
-        
+
         if (leftDiff < 0)
             chartA.config.options.layout.padding.left -= leftDiff
         else
@@ -304,7 +308,7 @@ function alignTwoCharts(chartA, chartB, threshold = 0.001) {
             chartB.config.options.layout.padding.right -=  widthDiff
         else
             chartA.config.options.layout.padding.right +=  widthDiff
-        
+
         chartA.update()
         chartB.update()
         count += 1
