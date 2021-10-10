@@ -96,13 +96,14 @@ function generateDataInDateRange(gridProps, fields, startdate, enddate, zoneData
             //  Create array of data
             for (let i = 0; i < numPoints; i++) {
                 const gridInterval = luxon.Interval.fromISO(thisGridField.values[i].validTime)
+                const gridStart = gridInterval.start.plus({minutes:zoneData.offset})
 
-                if (gridInterval.start <= enddate) {
+                if (gridStart <= enddate) {
                     //  Repeat value for specified number of hours
                     for (let h = 0; h < gridInterval.length('hours'); h++) {
-                        const currentTime = gridInterval.start.plus({hours:h}).setZone(zoneData.zone)
+                        const currentTime = gridStart.plus({hours:h})
                         if (currentTime >= startdate && currentTime <= enddate) {
-                            entryStruct.time.push(currentTime.plus({minutes:zoneData.offset}))
+                            entryStruct.time.push(currentTime)
                             if (certainFields.includes(field) )
                                 entryStruct.data.push(thisGridField.values[i].value /  gridInterval.length('hours'))
                             else
@@ -300,14 +301,14 @@ function alignTwoCharts(chartA, chartB, threshold = 0.001) {
         widthDiff = (chartA.chartArea.right - chartA.chartArea.left) - (chartB.chartArea.right - chartB.chartArea.left)
 
         if (leftDiff < 0)
-            chartA.config.options.layout.padding.left -= leftDiff
+            chartA.options.layout.padding.left -= leftDiff
         else
-            chartB.config.options.layout.padding.left += leftDiff
+            chartB.options.layout.padding.left += leftDiff
 
         if (widthDiff < 0)
-            chartB.config.options.layout.padding.right -=  widthDiff
+            chartB.options.layout.padding.right -=  widthDiff
         else
-            chartA.config.options.layout.padding.right +=  widthDiff
+            chartA.options.layout.padding.right +=  widthDiff
 
         chartA.update()
         chartB.update()
@@ -332,18 +333,15 @@ function arrayToChartJSData(x,y) {
     return data
 }
 
-function tooltipRoundValue(tooltipItem, data, len=2) {
-    var label = data.datasets[tooltipItem.datasetIndex].label || '';
-
+function tooltipRoundValue(context, len=2) {
+    var label = context.dataset.label || '';
+    var value = context.dataset.interpolatedValue
     if (label) {
         label += ': ';
     }
-    if (Number.isInteger(tooltipItem.yLabel))
-        label += tooltipItem.yLabel
-    else
-        label += Number.parseFloat(tooltipItem.yLabel).toFixed(len)
+    label += Number.parseFloat(value).toFixed(len)
     return label;
 }
-function tooltipRoundValue0(tooltipItem, data) {
-    return tooltipRoundValue(tooltipItem, data, 0)
+function tooltipRoundValue0(context) {
+    return tooltipRoundValue(context, 0)
 }
