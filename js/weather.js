@@ -883,8 +883,18 @@ addressAutocomplete(document.getElementById("autocomplete-container"), (data) =>
 });
 
 function defaultAction() {
-    document.getElementById('textinput').value = 'Somerville, MA'
-    geocode()
+    return fetch_retry('https://ipapi.co/json/')
+    .then(response => {return response.json()})
+    .catch(e => {
+        console.log('IP Location Error: ', e)
+        document.getElementById('textinput').value = 'Somerville, MA'
+        geocode()
+    })
+    .then(
+        json => {
+            console.log('Successful IP Location: ' + json.ip + ' -> (' + json.latitude + ', ' + json.longitude + ')' )
+            return getWeather(json.latitude, json.longitude, true)
+        })
 }
 
 var totalFetched = 1
