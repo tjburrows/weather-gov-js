@@ -9,7 +9,6 @@ var mapDrawn = false
 var mark
 var colorScheme = d3.schemeSet2
 
-
 function temperaturePlotter(canvas, timeAxis, dataPoints, syncIndex, lat, lon, timeRange) {
     const sunRiseSet = getSunriseSunset(lat, lon, timeRange[0])
     var tMax = Math.max(...dataPoints['temperature'].data)
@@ -255,38 +254,7 @@ function chartJSPlugins(groupNumber) {
     }
 }
 
-
-function todayPlots(gridProps, stationID, plotdiv, todayMidnight, lastMidnight, firstTime, zoneData, lat, lon) {
-    const todayFields = ['temperature', 'apparentTemperature']
-    
-    var minTemp
-    var maxTemp
-    var todayIcon
-    var plotObservations = false
-    let obsData = {'temperature':[], 'time':[]}
-    let todayForecast
-    var tempTime
-
-    todayForecast = generateDataInDateRange(gridProps, todayFields, lastMidnight, todayMidnight, zoneData)
-    // Find minimum and maximum temperature
-    minTemp = Math.min(...todayForecast['temperature'].data)
-    maxTemp = Math.max(...todayForecast['temperature'].data)
-    if (plotObservations) {
-        const obsMin = Math.min(...obsData.temperature)
-        const obsMax = Math.max(...obsData.temperature)
-        minTemp = (obsMin < minTemp) ? obsMin : minTemp
-        maxTemp = (obsMax > maxTemp) ? obsMax : maxTemp
-    }
-    
-    const todayDiv = document.createElement('div')
-    todayDiv.classList.add('canvasParent')
-    const todayCanvas1 = document.createElement('canvas')
-    todayDiv.appendChild(todayCanvas1)
-    const elem = plotdiv.appendChild(todayDiv)
-    const timeRange = [lastMidnight, todayMidnight]
-    const timeAxis = chartJsTimeAxis(timeRange)
-    const tempChartJS = temperaturePlotter(todayCanvas1, timeAxis, todayForecast, 0, lat, lon, timeRange)
-    
+function nowLine(chart, zoneData) {
     const now = luxon.DateTime.now().plus({minutes:zoneData.offset})
     const annotation = {
         annotations: {
@@ -307,19 +275,7 @@ function todayPlots(gridProps, stationID, plotdiv, todayMidnight, lastMidnight, 
             }
         }
     }
-    tempChartJS.options.plugins.annotation = annotation
-    
-    // Today Precipitation plot
-    const todayDiv2 = document.createElement('div')
-    todayDiv2.classList.add('canvasParent')
-    const todayCanvas2 = document.createElement('canvas')
-    todayDiv2.appendChild(todayCanvas2)
-    const elem2 = plotdiv.appendChild(todayDiv2)
-    const todayPrecipForecast = generateDataInDateRange(gridProps, ['quantitativePrecipitation', 'probabilityOfPrecipitation', 'snowfallAmount'], lastMidnight, todayMidnight, zoneData)
-    const todayPrecipChart = precipPlotter(todayCanvas2, timeAxis, todayPrecipForecast, 0)
-    todayPrecipChart.options.plugins.annotation = annotation
-    alignTwoCharts(tempChartJS, todayPrecipChart)
-    return {'minTemp':minTemp, 'maxTemp':maxTemp, 'icon':todayIcon}
+    chart.options.plugins.annotation = annotation
 }
 
 function drawLatestObservation(stationsJson) {
@@ -567,7 +523,6 @@ function drawLegend(legendObj) {
 }
 
 function inches2ftin(num) {
-    const sign = num < 0
     const feet = Math.floor(num / 12)
     const inch = num - (12 * feet)
     if (feet > 0)
@@ -660,7 +615,6 @@ function getWeather(lat, lon, reverseGeo, updateURL=true) {
         .then(response => {return response.json()})
         .then(stationsJson => {
             drawLatestObservation(stationsJson)
-            const stationID = stationsJson.features[0].properties.stationIdentifier
             
             const todayMidnight = luxon.DateTime.local().plus({minutes:zoneData.offset}).set({hour:24,minute:0,second:0,millisecond:0})
             const lastMidnight = todayMidnight.minus({days:1})
@@ -699,16 +653,16 @@ function getWeather(lat, lon, reverseGeo, updateURL=true) {
                     
                     console.log('grid:', gridJson)
                     const gridProps = gridJson.properties
-                    const firstTime = luxon.DateTime.fromISO(gridProps.temperature.values[0].validTime.split('/')[0]).setZone(thisTimeZone)
                     
                     // Get final midnight time in grid data
                     const lastGridMidnightAndDuration = gridProps.temperature.values.slice(-1)[0].validTime.split('/')
                     const lastGridMidnight = luxon.DateTime.fromISO(lastGridMidnightAndDuration[0]).plus({minutes:zoneData.offset}).plus(luxon.Duration.fromISO(lastGridMidnightAndDuration[1])).startOf('day')
                     const fields = ['temperature', 'apparentTemperature', 'probabilityOfPrecipitation', 'quantitativePrecipitation', 'snowfallAmount']
-                    const plotData = generateDataInDateRange(gridProps, fields, todayMidnight, lastGridMidnight, zoneData)
+                    const plotData = generateDataInDateRange(gridProps, fields, lastMidnight, lastGridMidnight, zoneData)
+                    const hoursMissing = plotData[fields[0]].time[0].diff(lastMidnight, 'hours').hours
                     const numDaysAfterToday = luxon.Interval.fromDateTimes(todayMidnight, lastGridMidnight).length('days')
-                    
-                    var currentDay, todayData, xExtent
+                    const xExtent = [Math.min(...plotData.temperature.data), Math.max(...plotData.temperature.data)]
+                    var currentDay, currentDayIdx = 0
                     
                     for (let i = 0; i <= numDaysAfterToday; i++) {
                         const thisDate = lastMidnight.plus({days:i})
@@ -743,56 +697,55 @@ function getWeather(lat, lon, reverseGeo, updateURL=true) {
                         document.getElementById("days").appendChild(content)
                         
                         // find corresponding day data
-                        for (let d = 0; d < dayPeriods.length; d++) {
+                        for (let d = currentDayIdx; d < dayPeriods.length; d++) {
                             if (dayPeriods[d].startTime.split('T')[0].split('-').slice(-1)[0] == thisDate.day) {
                                 currentDay = dayPeriods[d]
+                                currentDayIdx = d
                                 break
                             }
                         }
 
                         // Today is i == 0
                         var tempData = {}
-                        if (i == 0) {
-                            todayData = todayPlots(gridProps, stationID, content, todayMidnight, lastMidnight, firstTime, zoneData, lat, lon)
-                        }
-                        else {
-                            Object.keys(plotData).forEach(function (field, index) {
-                                tempData[field] = {'data':[],'time':[]}
-                                tempData[field].data = plotData[field].data.slice((i-1)*24, i*24+1)
-                                tempData[field].time = plotData[field].time.slice((i-1)*24, i*24+1)
-                            }) 
-                            
-                            //  Elem = div for temperature plot
-                            const div2 = document.createElement('div')
-                            div2.classList.add('canvasParent')
-                            content.appendChild(div2)
-                            const div21 = document.createElement('canvas')
-                            div2.appendChild(div21)
-                            
-                            // Determine if apparent temp is different from actual
-                            const timeRange = [thisDate, thisDate.plus({days:1})]
-                            const timeAxis = chartJsTimeAxis(timeRange)
-                            
-                            const tempChartJS = temperaturePlotter(div21, timeAxis, tempData, i+1, lat, lon, timeRange)
-                                
-                            //  Elem2 = div for precipitation plot
-                            const div3 = document.createElement('div')
-                            div3.classList.add('canvasParent')
-                            content.appendChild(div3)
-                            const div31 = document.createElement('canvas')
-                            const elem2 = div3.appendChild(div31)
+                        Object.keys(plotData).forEach(function (field) {
+                            tempData[field] = {'data':[],'time':[]}
+                            tempData[field].data = plotData[field].data.slice(i*24 - (i == 0 ? 0 : hoursMissing), (i+1)*24+1)
+                            tempData[field].time = plotData[field].time.slice(i*24 - (i == 0 ? 0 : hoursMissing), (i+1)*24+1)
+                        })
+                        
+                        //  Elem = div for temperature plot
+                        const div2 = document.createElement('div')
+                        div2.classList.add('canvasParent')
+                        content.appendChild(div2)
+                        const div21 = document.createElement('canvas')
+                        div2.appendChild(div21)
+                        
+                        // Determine if apparent temp is different from actual
+                        const timeRange = [thisDate, thisDate.plus({days:1})]
+                        const timeAxis = chartJsTimeAxis(timeRange)
+                        
+                        const tempChartJS = temperaturePlotter(div21, timeAxis, tempData, i+1, lat, lon, timeRange)
+                        
+                        //  Elem2 = div for precipitation plot
+                        const div3 = document.createElement('div')
+                        div3.classList.add('canvasParent')
+                        content.appendChild(div3)
+                        const div31 = document.createElement('canvas')
+                        div3.appendChild(div31)
 
-                            //  Precipitation plot
-                            const thisPrecipChart = precipPlotter(div31, timeAxis, tempData, i+1)
-                            alignTwoCharts(tempChartJS, thisPrecipChart)
+                        //  Precipitation plot
+                        const thisPrecipChart = precipPlotter(div31, timeAxis, tempData, i+1)
+
+                        // Draw vertical line at now time on today's chart
+                        if (i == 0) {
+                            nowLine(tempChartJS, zoneData)
+                            nowLine(thisPrecipChart, zoneData)
                         }
+
+                        alignTwoCharts(tempChartJS, thisPrecipChart)
                         
                         //  D3 bar
-                        if (i == 0) {
-                            xExtent = [Math.min(...plotData.temperature.data), Math.max(...plotData.temperature.data)]
-                            xExtent = [Math.min(xExtent[0], todayData.minTemp), Math.max(xExtent[1], todayData.maxTemp)]
-                        }
-                        const thisTempExtent = i == 0 ? [todayData.minTemp, todayData.maxTemp] : [Math.min(...tempData.temperature.data), Math.max(...tempData.temperature.data)]
+                        const thisTempExtent = [Math.min(...tempData.temperature.data), Math.max(...tempData.temperature.data)]
                         const iconSize = 40
                         const iconSpace = 10
                         const svgBarBoxH = 50
@@ -803,7 +756,6 @@ function getWeather(lat, lon, reverseGeo, updateURL=true) {
                         const plusPadding = 14
                         const xRange = [svgBarTextWidth + svgBarLabelPadding, buttonElem.clientWidth - svgBarLabelPadding - plusPadding - iconSize - iconSpace]
                         const barXScale = d3.scaleLinear().range(xRange).domain(xExtent)
-                        const dateParser = d3.timeParse('%Y-%m-%d')
                         const weatherIcon = document.createElement("img")
                         weatherIcon.src = currentDay.icon
                         weatherIcon.alt = currentDay.shortForecast
