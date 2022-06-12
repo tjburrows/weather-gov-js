@@ -84,55 +84,55 @@ function generateDataInDateRange(gridProps, fields, startdate, enddate, zoneData
     const certainFields=['quantitativePrecipitation','snowfallAmount']
     const zeroThreshold = 0.01
     fields.forEach(function (field, index) {
-        if (field in gridProps) {
-            const thisGridField = gridProps[field]
-            const numPoints = thisGridField.values.length
-            const entryStruct = {'time':new Array(), 'data':new Array(), 'unit':''}
+        if (!(field in gridProps )) {
+            console.log('Error: ' + field + ' not in properties')
+            return
+        }
 
-            //  Extract parameter unit
-            if ('uom' in thisGridField)
-                entryStruct.unit = thisGridField.uom.split(':')[1]
+        const thisGridField = gridProps[field]
+        const numPoints = thisGridField.values.length
+        const entryStruct = {'time':new Array(), 'data':new Array(), 'unit':''}
 
-            //  Create array of data
-            for (let i = 0; i < numPoints; i++) {
-                const gridInterval = luxon.Interval.fromISO(thisGridField.values[i].validTime)
-                const gridStart = gridInterval.start.plus({minutes:zoneData.offset})
+        //  Extract parameter unit
+        if ('uom' in thisGridField)
+            entryStruct.unit = thisGridField.uom.split(':')[1]
 
-                if (gridStart <= enddate) {
-                    //  Repeat value for specified number of hours
-                    for (let h = 0; h < gridInterval.length('hours'); h++) {
-                        const currentTime = gridStart.plus({hours:h})
-                        if (currentTime >= startdate && currentTime <= enddate) {
-                            entryStruct.time.push(currentTime)
-                            if (certainFields.includes(field) )
-                                entryStruct.data.push(thisGridField.values[i].value /  gridInterval.length('hours'))
-                            else
-                                entryStruct.data.push(thisGridField.values[i].value)
+        //  Create array of data
+        for (let i = 0; i < numPoints; i++) {
+            const gridInterval = luxon.Interval.fromISO(thisGridField.values[i].validTime)
+            const gridStart = gridInterval.start.plus({minutes:zoneData.offset})
 
-                        }
+            if (gridStart <= enddate) {
+                //  Repeat value for specified number of hours
+                for (let h = 0; h < gridInterval.length('hours'); h++) {
+                    const currentTime = gridStart.plus({hours:h})
+                    if (currentTime >= startdate && currentTime <= enddate) {
+                        entryStruct.time.push(currentTime)
+                        if (certainFields.includes(field) )
+                            entryStruct.data.push(thisGridField.values[i].value /  gridInterval.length('hours'))
+                        else
+                            entryStruct.data.push(thisGridField.values[i].value)
+
                     }
                 }
             }
+        }
 
-            if (entryStruct.unit.includes('degC')) {
-                for (let i = 0; i < entryStruct.data.length; i++) {
-                    entryStruct.data[i] = c2f(entryStruct.data[i])
-                }
-                entryStruct.unit = degreeSymbol + 'F'
+        if (entryStruct.unit.includes('degC')) {
+            for (let i = 0; i < entryStruct.data.length; i++) {
+                entryStruct.data[i] = c2f(entryStruct.data[i])
             }
-            else if (entryStruct.unit.includes('degF'))
-                entryStruct.unit = degreeSymbol + 'F'
-            if (entryStruct.unit == 'mm') {
-                for (let i = 0; i < entryStruct.data.length; i++) {
-                    entryStruct.data[i] = entryStruct.data[i] / 25.4
-                }
-                entryStruct.unit = 'in'
+            entryStruct.unit = degreeSymbol + 'F'
+        }
+        else if (entryStruct.unit.includes('degF'))
+            entryStruct.unit = degreeSymbol + 'F'
+        if (entryStruct.unit == 'mm') {
+            for (let i = 0; i < entryStruct.data.length; i++) {
+                entryStruct.data[i] = entryStruct.data[i] / 25.4
             }
-            dataStruct[field] = entryStruct
+            entryStruct.unit = 'in'
         }
-        else {
-            console.log('Error: ' + field + ' not in properties')
-        }
+        dataStruct[field] = entryStruct
     })
     return dataStruct
 }
@@ -313,6 +313,18 @@ function alignTwoCharts(chartA, chartB, threshold = 0.001) {
         chartA.update()
         chartB.update()
         count += 1
+    }
+}
+
+function alignChartAtoB(chartA, chartB, threshold = 0.001) {
+    let leftDiff = 1
+    let widthDiff = 1
+    while (Math.abs(leftDiff) > threshold && Math.abs(widthDiff) > threshold ) {
+        leftDiff = chartA.chartArea.left - chartB.chartArea.left
+        widthDiff = (chartA.chartArea.right - chartA.chartArea.left) - (chartB.chartArea.right - chartB.chartArea.left)
+        chartA.options.layout.padding.left -= leftDiff
+        chartA.options.layout.padding.right +=  widthDiff
+        chartA.update()
     }
 }
 

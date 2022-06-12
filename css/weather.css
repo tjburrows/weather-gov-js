@@ -43,11 +43,16 @@
     display: 'inline-block';
 }
 
+.conditionParent {
+  width: 100%;
+  height: 65px;
+  position: 'relative';
+  display: 'inline-block';
+}
 
 .autocomplete-container {
   /*the container must be positioned relative:*/
   position: relative;
-  
   margin-bottom: 20px;
 }
 
